@@ -1,0 +1,25 @@
+# Plantilla para correr la aplicación localmente con spring.profiles.active=prod,local
+# Copiá este archivo como application-local.properties y completá los valores reales.
+# application-local.properties está en .gitignore — este .example SÍ se versiona.
+
+# Base de datos local (MySQL).
+spring.datasource.url=jdbc:mysql://localhost:3306/<DB_NAME>?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true
+spring.datasource.username=<DB_USERNAME>
+spring.datasource.password=<DB_PASSWORD>
+
+# JWT secret (mínimo 512 bits para HS512).
+authorization.jwt.secret=<JWT_SECRET_LARGA_512_BITS>
+
+# Stripe test keys (obtenelas en dashboard.stripe.com → Developers → API keys).
+stripe.api-key=sk_test_<TU_CLAVE_PUBLICA_DE_PRUEBA>
+stripe.webhook-secret=whsec_<TU_WEBHOOK_SECRET_LOCAL>
+
+# Útil para ver queries en consola durante la prueba local.
+spring.jpa.show-sql=true
+
+# MySQL 9 trata 'sets' como palabra reservada y falla el DDL de exercise_blocks.
+# Hibernate 7.2 no propaga el quoting por @Column(name="`sets`") a través de
+# SpringPhysicalNamingStrategy, por lo que hay que forzarlo globalmente aquí.
+# En Azure (MySQL 8) 'sets' no es reservada — esta propiedad solo aplica local.
+# Descomentar si usás MySQL 9+:
+# spring.jpa.properties.hibernate.globally_quoted_identifiers=true
