@@ -2,6 +2,7 @@ package com.spottrack.platform.monitoring.infrastructure.persistence.jpa.adapter
 
 import com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.EquipmentId;
+import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorId;
 import com.spottrack.platform.monitoring.domain.repositories.MotionSensorRepository;
 import com.spottrack.platform.monitoring.infrastructure.persistence.jpa.assemblers.MotionSensorPersistenceAssembler;
 import com.spottrack.platform.monitoring.infrastructure.persistence.jpa.repositories.MotionSensorPersistenceRepository;
@@ -37,6 +38,12 @@ public class MotionSensorRepositoryImpl implements MotionSensorRepository {
     @Override
     public Optional<MotionSensor> findById(Long id) {
         return motionSensorPersistenceRepository.findById(id)
+                .map(MotionSensorPersistenceAssembler::toDomainFromPersistence);
+    }
+
+    @Override
+    public Optional<MotionSensor> findByMotionSensorId(MotionSensorId motionSensorId) {
+        return motionSensorPersistenceRepository.findByMotionSensorId(motionSensorId)
                 .map(MotionSensorPersistenceAssembler::toDomainFromPersistence);
     }
 
