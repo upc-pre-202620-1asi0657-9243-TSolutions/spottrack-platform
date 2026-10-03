@@ -3,8 +3,10 @@
 # It picks a broker per connection, not per message.
 
 # Healthy = broker accepts a TCP connection on 1883.
-resource "google_compute_health_check" "mqtt" {
-  name = "spottrack-mqtt-hc"
+# Must be regional: the TCP balancer rejects global health checks.
+resource "google_compute_region_health_check" "mqtt" {
+  name   = "spottrack-mqtt-hc"
+  region = "us-central1"
 
   tcp_health_check {
     port = 1883
@@ -16,7 +18,7 @@ resource "google_compute_region_backend_service" "mqtt" {
   region                = "us-central1"
   load_balancing_scheme = "EXTERNAL"
   protocol              = "TCP"
-  health_checks         = [google_compute_health_check.mqtt.id]
+  health_checks         = [google_compute_region_health_check.mqtt.id]
 
   backend {
     group          = google_compute_instance_group.brokers.id
