@@ -1,50 +1,40 @@
-#Pick a VM 
-resource "google_compute_backend_service" "backend" {
-  name = "spottrack-backend"
-  load_balancing_scheme = "EXTERNAL_MANAGED"
-  protocol = "HTTP"
-  port_name = "http"
-  timeout_sec = 3600
+# TCP (network) load balancer for MQTT:
+#   IP:1883 -> forwarding rule -> backend service -> one of the 3 brokers
+# It picks a broker per connection, not per message.
 
-  health_checks = [google_compute_health_check.bkacned.id]
+# Healthy = broker accepts a TCP connection on 1883.
+resource "google_compute_health_check" "mqtt" {
+  name = "spottrack-mqtt-hc"
+
+  tcp_health_check {
+    port = 1883
+  }
+}
+
+resource "google_compute_region_backend_service" "mqtt" {
+  name                  = "spottrack-mqtt-backend"
+  region                = "us-central1"
+  load_balancing_scheme = "EXTERNAL"
+  protocol              = "TCP"
+  health_checks         = [google_compute_health_check.mqtt.id]
 
   backend {
-    group = google_compute_instance_group_manager.backend.instance_group
+    group          = google_compute_instance_group.brokers.id
+    balancing_mode = "CONNECTION"
   }
-
 }
 
-#Spread requests acrross healthy VMs.
-
-
-# Url map
-resource "google+compute_url_map" "lb" {
-  name = "spottrack-urlmap"
-  default_service = google_compute_backend_service.backend.id
+resource "google_compute_address" "mqtt" {
+  name   = "spottrack-mqtt-ip"
+  region = "us-central1"
 }
 
-
-
-#Proxy: reads http
-
-resource "google_compute_target_http_proxy" "lb" {
-  name = "spottrack-proxy"
-  url_map = google_compute_url_map.lb.id
+resource "google_compute_forwarding_rule" "mqtt" {
+  name                  = "spottrack-mqtt-rule"
+  region                = "us-central1"
+  load_balancing_scheme = "EXTERNAL"
+  ip_protocol           = "TCP"
+  ports                 = ["1883"]
+  ip_address            = google_compute_address.mqtt.address
+  backend_service       = google_compute_region_backend_service.mqtt.id
 }
-
-#Take connection. Read request. Hand to URL map 
-
-
-resource "google_compute_global_address" "lb" {
-  name = "spottrack-ip"
-}
-
-resource "google_compute_global_forwarding_rule" "lb" {
-   name = "spottrack-rule"
-   load_balancing_scheme = "EXTERNAL_MANAGED"
-   ip_address = google_compute_global_address.lb.id
-   port_range = "80"
-   target = google_compute_target_http_proxy.lb.id
- }
-
-

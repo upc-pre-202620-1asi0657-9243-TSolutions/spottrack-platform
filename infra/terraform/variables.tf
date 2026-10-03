@@ -1,6 +1,6 @@
 variable "project_id" {
-  type        = string
-  
+  type = string
+
 }
 
 variable "image" {
@@ -9,11 +9,16 @@ variable "image" {
 
 
 variable "instance_count" {
-  type = number
+  type    = number
   default = 1
 }
 
+variable "broker_count" {
+  type    = number
+  default = 3
+}
+
 variable "app_env" {
-  type = map(string)
-  sensitive = true 
+  type      = map(string)
+  sensitive = true
 }
