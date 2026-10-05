@@ -28,8 +28,7 @@ public class SessionTrackerStompEventHandler {
         publish(event.sessionTrackerId(), "INACTIVE");
     }
 
-    @EventListener
-    public void publish(SessionTrackerId sessionTrackerId, String status) {
+    private void publish(SessionTrackerId sessionTrackerId, String status) {
         String id = sessionTrackerId.uuid();
         messagingTemplate.convertAndSend(
                 "/topic/monitoring/session-trackers/" + id,
