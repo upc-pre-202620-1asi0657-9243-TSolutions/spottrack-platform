@@ -6,6 +6,7 @@ import com.spottrack.platform.reservation.domain.model.events.ReservationTimerSt
 import com.spottrack.platform.reservation.domain.model.valueobjects.ReservationId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
@@ -30,7 +31,7 @@ public class ReservationTimerStartedEventHandler {
     private final TaskScheduler taskScheduler;
     private final ReservationCommandService reservationCommandService;
 
-    public ReservationTimerStartedEventHandler(TaskScheduler taskScheduler,
+    public ReservationTimerStartedEventHandler(@Qualifier("reservationTaskScheduler") TaskScheduler taskScheduler,
                                                ReservationCommandService reservationCommandService) {
         this.taskScheduler = taskScheduler;
         this.reservationCommandService = reservationCommandService;
