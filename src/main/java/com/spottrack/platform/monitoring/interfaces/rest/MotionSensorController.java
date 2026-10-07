@@ -8,6 +8,7 @@ import com.spottrack.platform.monitoring.application.queryServices.MotionSensorQ
 import com.spottrack.platform.monitoring.domain.model.aggregates.SessionTracker;
 import com.spottrack.platform.monitoring.domain.model.queries.GetAllMotionSensorsQuery;
 import com.spottrack.platform.monitoring.interfaces.rest.resources.CaptureMotionSensorReadingResource;
+import com.spottrack.platform.monitoring.interfaces.rest.resources.DeviceResource;
 import com.spottrack.platform.monitoring.interfaces.rest.resources.MotionSensorResource;
 import com.spottrack.platform.monitoring.interfaces.rest.resources.RegisterMotionSensorResource;
 import com.spottrack.platform.monitoring.interfaces.rest.resources.SessionTrackerResource;
@@ -106,6 +107,14 @@ public class MotionSensorController {
                         sensor,
                         gymContextFacade.findEquipmentById(sensor.getEquipmentId().uuid()).orElse(null)
                 ))
+                .toList();
+    }
+
+    @GetMapping("/devices")
+    @Operation(summary = "List device ids for the IoT simulator", description = "Returns the motion sensor ids currently registered, so the IoT simulator knows which devices to simulate.")
+    public List<DeviceResource> getDevices() {
+        return motionSensorQueryService.handle(new GetAllMotionSensorsQuery()).stream()
+                .map(sensor -> new DeviceResource(sensor.getMotionSensorId().uuid()))
                 .toList();
     }
 
