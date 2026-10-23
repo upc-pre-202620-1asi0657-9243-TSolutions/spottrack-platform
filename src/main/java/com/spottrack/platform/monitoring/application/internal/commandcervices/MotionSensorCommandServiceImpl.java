@@ -4,6 +4,7 @@ import com.spottrack.platform.monitoring.application.commandServices.MotionSenso
 import com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor;
 import com.spottrack.platform.monitoring.domain.model.commands.MarkMotionSensorDisconnectedCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.MarkMotionSensorReconnectedCommand;
+import com.spottrack.platform.monitoring.domain.model.commands.RecordMotionSensorHeartbeatCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.RegisterMotionSensorCommand;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.monitoring.domain.repositories.MotionSensorRepository;
@@ -77,6 +78,23 @@ public class MotionSensorCommandServiceImpl implements MotionSensorCommandServic
             return Result.success(saved);
         } catch (Exception e) {
             return Result.failure(ApplicationError.unexpected("Motion sensor reconnection", e.getMessage()));
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Override
+    public Result<MotionSensor, ApplicationError> handle(RecordMotionSensorHeartbeatCommand command) {
+        try {
+            var found = motionSensorRepository.findByMotionSensorId(command.motionSensorId());
+            if (found.isEmpty()) {
+                return Result.failure(ApplicationError.notFound("MotionSensor", command.motionSensorId().uuid()));
+            }
+            var sensor = found.get();
+            sensor.recordHeartbeat(command.seenAt());
+            var saved = motionSensorRepository.save(sensor);
+            return Result.success(saved);
+        } catch (Exception e) {
+            return Result.failure(ApplicationError.unexpected("Motion sensor heartbeat", e.getMessage()));
         }
     }
 }

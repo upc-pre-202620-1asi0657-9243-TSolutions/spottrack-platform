@@ -11,7 +11,8 @@ public class MotionSensorPersistenceAssembler {
                 entity.getEquipmentId(),
                 entity.getRegisteredAt(),
                 entity.isOnline(),
-                entity.getLastStatusChangeAt()
+                entity.getLastStatusChangeAt(),
+                entity.getLastSeenAt()
         );
     }
 
@@ -23,6 +24,7 @@ public class MotionSensorPersistenceAssembler {
         entity.setRegisteredAt(domain.getRegisteredAt());
         entity.setOnline(domain.isOnline());
         entity.setLastStatusChangeAt(domain.getLastStatusChangeAt());
+        entity.setLastSeenAt(domain.getLastSeenAt());
         return entity;
     }
 }

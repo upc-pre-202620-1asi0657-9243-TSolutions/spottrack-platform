@@ -18,6 +18,8 @@ public record MotionSensorResource(
         @Schema(description = "Whether the sensor is currently connected to the network")
         boolean online,
         @Schema(description = "Timestamp of the last online/offline status change")
-        LocalDateTime lastStatusChangeAt
+        LocalDateTime lastStatusChangeAt,
+        @Schema(description = "Timestamp of the last heartbeat or signal received from the device")
+        LocalDateTime lastSeenAt
 ) {
 }
