@@ -5,7 +5,6 @@ import com.spottrack.platform.monitoring.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorId;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,6 +15,5 @@ public interface MotionSensorRepository {
     Optional<MotionSensor> findById(Long id);
     Optional<MotionSensor> findByMotionSensorId(MotionSensorId motionSensorId);
     List<MotionSensor> findAllOnline();
-    List<MotionSensor> findAllOfflineSince(LocalDateTime threshold);
     MotionSensor save(MotionSensor motionSensor);
 }
