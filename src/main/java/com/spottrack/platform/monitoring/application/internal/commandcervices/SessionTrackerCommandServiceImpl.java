@@ -1,5 +1,7 @@
 package com.spottrack.platform.monitoring.application.internal.commandcervices;
 
+import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
 import com.spottrack.platform.monitoring.domain.model.aggregates.SessionTracker;
@@ -44,6 +46,17 @@ public class SessionTrackerCommandServiceImpl implements SessionTrackerCommandSe
                         new UsageActivity(LocalTime.MIDNIGHT, LocalTime.MIDNIGHT)
                 )));
     }
+    /**
+     * Motion on a free machine means someone walked up and started using it, so the
+     * map shows it as taken right away. Any other status (reserved, maintenance...)
+     * is owned by its own flow and left alone.
+     */
+    private void markOccupiedIfAvailable(Equipment equipment) {
+        if (equipment.getStatus() == EquipmentStatus.AVAILABLE) {
+            gymContextFacade.updateEquipmentStatus(equipment.getId().uuid(), EquipmentStatus.OCCUPIED);
+        }
+    }
+
     @Transactional
     @Override
     public Result<SessionTracker, ApplicationError> handle(VerifyUsageSessionCommand command) {
@@ -81,9 +94,11 @@ public class SessionTrackerCommandServiceImpl implements SessionTrackerCommandSe
 
     @Override
     public Result<SessionTracker, ApplicationError> handle(MotionSensorCaptureCommand command) {
-        if (gymContextFacade.findEquipmentById(command.equipmentId().uuid()).isEmpty()) {
+        var equipment = gymContextFacade.findEquipmentById(command.equipmentId().uuid());
+        if (equipment.isEmpty()) {
             return Result.failure(ApplicationError.notFound("Equipment", command.equipmentId().uuid()));
         }
+        if (command.movementDetectedViaSensor()) markOccupiedIfAvailable(equipment.get());
         try {
             var tracker = findOrCreateActiveTrackerForEquipment(command.equipmentId());
             tracker.captureMotionSensorReading(command.movementDetectedViaSensor());
@@ -98,9 +113,11 @@ public class SessionTrackerCommandServiceImpl implements SessionTrackerCommandSe
 
     @Override
     public Result<SessionTracker, ApplicationError> handle(CameraCaptureMotionCommand command) {
-        if (gymContextFacade.findEquipmentById(command.equipmentId().uuid()).isEmpty()) {
+        var equipment = gymContextFacade.findEquipmentById(command.equipmentId().uuid());
+        if (equipment.isEmpty()) {
             return Result.failure(ApplicationError.notFound("Equipment", command.equipmentId().uuid()));
         }
+        if (command.movementDetectedViaVideo()) markOccupiedIfAvailable(equipment.get());
         try {
             var tracker = findOrCreateActiveTrackerForEquipment(command.equipmentId());
             tracker.captureCameraMotion(command.movementDetectedViaVideo());
