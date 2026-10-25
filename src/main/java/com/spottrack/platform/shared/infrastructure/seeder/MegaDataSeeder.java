@@ -539,7 +539,7 @@ public class MegaDataSeeder {
             long seconds = (long) Math.max(180, (meanMinutes + random.nextGaussian() * meanMinutes * 0.4) * 60);
             e.usageMinutes += seconds / 60.0;
             eventPublisher.publishEvent(new SessionTimeCalculatedAnalyticsIntegrationEvent(
-                    UUID.randomUUID().toString(), e.id, LocalTime.ofSecondOfDay(seconds)));
+                    UUID.randomUUID().toString(), e.id, LocalTime.ofSecondOfDay(seconds), null, null));
         }
         stats.merge("usageSessions", sessions, Integer::sum);
     }

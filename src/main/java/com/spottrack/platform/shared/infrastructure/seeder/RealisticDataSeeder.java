@@ -465,7 +465,7 @@ public class RealisticDataSeeder {
     private int publishUsage(SimEquipment e) {
         for (double seconds : e.sessionSeconds) {
             eventPublisher.publishEvent(new SessionTimeCalculatedAnalyticsIntegrationEvent(
-                    UUID.randomUUID().toString(), e.equipmentId, LocalTime.ofSecondOfDay((long) seconds)));
+                    UUID.randomUUID().toString(), e.equipmentId, LocalTime.ofSecondOfDay((long) seconds), null, null));
         }
         return e.sessionSeconds.size();
     }
