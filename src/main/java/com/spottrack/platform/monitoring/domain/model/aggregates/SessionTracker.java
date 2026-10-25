@@ -121,6 +121,7 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
         this.sessionIsInactive = true;
         registerDomainEvent(new UsageSessionEndedEvent(
                 this.sessionTrackerId,
+                this.equipmentId.uuid(),
                 this.reservationId != null ? this.reservationId.uuid() : null));
     }
 
