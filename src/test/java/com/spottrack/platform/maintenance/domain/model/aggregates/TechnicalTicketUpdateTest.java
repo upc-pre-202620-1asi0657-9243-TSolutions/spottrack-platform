@@ -45,12 +45,13 @@ class TechnicalTicketUpdateTest {
     }
 
     @Test
-    void refusesToAssignAnOpenTicketThroughAnEdit() {
+    void assignsAPendingTicketWithoutStartingIt() {
         var ticket = openTicket();
 
-        var error = assertThrows(IllegalStateException.class, () -> ticket.update(update(ticket, "tech-1")));
+        ticket.update(update(ticket, "tech-1"));
 
-        assertEquals("maintenance.error.ticket.reassignRequiresInProgress", error.getMessage());
+        assertEquals("tech-1", ticket.getTechnicianId());
+        assertEquals(TicketStatus.OPEN, ticket.getTicketStatus());
     }
 
     @Test
