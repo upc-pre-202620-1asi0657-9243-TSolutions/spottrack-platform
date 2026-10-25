@@ -280,6 +280,8 @@ public class MegaDataSeeder {
     }
 
     private final Random random = new Random(RANDOM_SEED);
+    /** Seeded usage sessions are spread over this many past days. */
+    private static final int USAGE_HISTORY_DAYS = 30;
     private final Set<String> usedEmails = new HashSet<>();
     private int dniCounter = 71000000;
     private final Map<String, Integer> stats = new LinkedHashMap<>();
@@ -538,8 +540,10 @@ public class MegaDataSeeder {
         for (int s = 0; s < sessions; s++) {
             long seconds = (long) Math.max(180, (meanMinutes + random.nextGaussian() * meanMinutes * 0.4) * 60);
             e.usageMinutes += seconds / 60.0;
+            var startedAt = UsageTimeline.start(UsageTimeline.recentDay(random, USAGE_HISTORY_DAYS), seconds, random);
             eventPublisher.publishEvent(new SessionTimeCalculatedAnalyticsIntegrationEvent(
-                    UUID.randomUUID().toString(), e.id, LocalTime.ofSecondOfDay(seconds), null, null));
+                    UUID.randomUUID().toString(), e.id, LocalTime.ofSecondOfDay(seconds),
+                    startedAt, startedAt.plusSeconds(seconds)));
         }
         stats.merge("usageSessions", sessions, Integer::sum);
     }

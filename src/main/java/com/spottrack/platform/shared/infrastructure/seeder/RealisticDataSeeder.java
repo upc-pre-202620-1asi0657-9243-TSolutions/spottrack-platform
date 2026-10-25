@@ -170,6 +170,8 @@ public class RealisticDataSeeder {
         final double utilizationFactor;
         final double failureFactor;
         final List<Double> sessionSeconds = new ArrayList<>();
+        /** Simulation day of each entry in sessionSeconds. */
+        final List<Integer> sessionDays = new ArrayList<>();
         final double[] dailyUsageMinutes = new double[SIM_DAYS];
         double downtimeMinutes;
         double laborCost;
@@ -388,18 +390,19 @@ public class RealisticDataSeeder {
             }
 
             e.dailyUsageMinutes[day] = usage;
-            splitIntoSessions(e, usage, random);
+            splitIntoSessions(e, day, usage, random);
         }
     }
 
     /** People use a machine in sessions of a few minutes up to ~an hour. */
-    private void splitIntoSessions(SimEquipment e, double usageMinutes, Random random) {
+    private void splitIntoSessions(SimEquipment e, int day, double usageMinutes, Random random) {
         double remainingSeconds = usageMinutes * 60;
         double meanMinutes = e.model.zone().equals("Cardio") ? 28 : 17;
         while (remainingSeconds > 0) {
             double sessionSeconds = Math.max(4 * 60, (meanMinutes + random.nextGaussian() * meanMinutes * 0.4) * 60);
             sessionSeconds = Math.min(sessionSeconds, remainingSeconds);
             e.sessionSeconds.add(Math.floor(sessionSeconds));
+            e.sessionDays.add(day);
             remainingSeconds -= sessionSeconds;
         }
     }
@@ -463,9 +466,14 @@ public class RealisticDataSeeder {
 
     /** Each session goes through the same integration event monitoring publishes when a session ends. */
     private int publishUsage(SimEquipment e) {
-        for (double seconds : e.sessionSeconds) {
+        var random = new Random(e.code.hashCode());
+        var startDate = LocalDate.now().minusDays(SIM_DAYS);
+        for (int i = 0; i < e.sessionSeconds.size(); i++) {
+            long seconds = e.sessionSeconds.get(i).longValue();
+            var startedAt = UsageTimeline.start(startDate.plusDays(e.sessionDays.get(i)), seconds, random);
             eventPublisher.publishEvent(new SessionTimeCalculatedAnalyticsIntegrationEvent(
-                    UUID.randomUUID().toString(), e.equipmentId, LocalTime.ofSecondOfDay((long) seconds), null, null));
+                    UUID.randomUUID().toString(), e.equipmentId, LocalTime.ofSecondOfDay(seconds),
+                    startedAt, startedAt.plusSeconds(seconds)));
         }
         return e.sessionSeconds.size();
     }
