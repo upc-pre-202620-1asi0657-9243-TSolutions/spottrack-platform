@@ -3,6 +3,7 @@ package com.spottrack.platform.maintenance.domain.model.aggregates;
 import com.spottrack.platform.maintenance.domain.model.commands.AssignTechnicalTicket;
 import com.spottrack.platform.maintenance.domain.model.commands.ModifyTicketStatus;
 import com.spottrack.platform.maintenance.domain.model.commands.RequestUpdateMaintenanceStatus;
+import com.spottrack.platform.maintenance.domain.model.commands.UpdateTechnicalTicket;
 import com.spottrack.platform.maintenance.domain.model.commands.UpdateMaintenanceStatus;
 import com.spottrack.platform.maintenance.domain.model.events.MaintenanceStatusUpdateRequestedEvent;
 import com.spottrack.platform.maintenance.domain.model.events.MaintenanceStatusUpdatedEvent;
@@ -72,6 +73,26 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
         this.technicianId = command.technicianId();
         this.ticketStatus = TicketStatus.IN_PROGRESS;
         registerDomainEvent(new TechnicalTicketAssignedEvent(this.ticketId.uuid(), this.technicianId, this.equipmentId));
+    }
+
+    /**
+     * Edits description, priority and type, and optionally hands an in-progress
+     * ticket to another technician. A resolved ticket is closed history.
+     */
+    public void update(UpdateTechnicalTicket command) {
+        if (this.ticketStatus == TicketStatus.RESOLVED) {
+            throw new IllegalStateException("maintenance.error.ticket.resolvedIsFinal");
+        }
+        var technicianId = command.technicianId();
+        if (technicianId != null && !technicianId.isBlank() && !technicianId.equals(this.technicianId)) {
+            if (this.ticketStatus != TicketStatus.IN_PROGRESS) {
+                throw new IllegalStateException("maintenance.error.ticket.reassignRequiresInProgress");
+            }
+            this.technicianId = technicianId;
+        }
+        this.description = command.description().trim();
+        this.priority = command.priority();
+        this.type = command.type();
     }
 
     public void markAsResolved() {
