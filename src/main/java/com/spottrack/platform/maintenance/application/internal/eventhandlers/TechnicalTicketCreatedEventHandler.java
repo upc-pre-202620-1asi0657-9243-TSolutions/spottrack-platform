@@ -3,7 +3,7 @@ package com.spottrack.platform.maintenance.application.internal.eventhandlers;
 import com.spottrack.platform.maintenance.application.commandServices.MaintenanceCommandService;
 import com.spottrack.platform.maintenance.domain.model.commands.CreateMaintenanceJob;
 import com.spottrack.platform.maintenance.domain.model.events.TechnicalTicketCreatedEvent;
-import com.spottrack.platform.maintenance.interfaces.events.EquipmentOutOfServiceIntegrationEvent;
+import com.spottrack.platform.maintenance.interfaces.events.EquipmentUnderMaintenanceIntegrationEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -27,7 +27,7 @@ public class TechnicalTicketCreatedEventHandler {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void on(TechnicalTicketCreatedEvent event) {
         eventPublisher.publishEvent(
-                new EquipmentOutOfServiceIntegrationEvent(event.equipmentId(), event.ticketId(), event.maintenanceId())
+                new EquipmentUnderMaintenanceIntegrationEvent(event.equipmentId(), event.ticketId())
         );
 
         // Policy: [Technical Ticket Created] spawn an unassigned MaintenanceJob
