@@ -7,20 +7,31 @@ Feature: Technical ticket management in the Maintenance Center
   Background:
     Given the administrator is signed in to the Maintenance Center
 
-  Scenario: Starting a pending ticket
-    Given there is a technical ticket in "Pending" status
-    When the administrator starts the ticket
-    Then the ticket status changes to "In Progress"
-    And the start of the attention is registered
+  Scenario: Starting an open ticket by assigning a technician
+    Given there is a technical ticket in "OPEN" status
+    When the administrator assigns a technician to the ticket
+    Then the ticket status changes to "IN_PROGRESS"
+    And the start of the attention is registered in "startedAt"
+
+  Scenario: Starting an open ticket by changing its status
+    Given there is a technical ticket in "OPEN" status
+    When the administrator changes the ticket status to "IN_PROGRESS"
+    Then the ticket status changes to "IN_PROGRESS"
+    And the start of the attention is registered in "startedAt"
+
+  Scenario: The start of the attention is registered only once
+    Given there is a technical ticket in "IN_PROGRESS" status with "startedAt" registered
+    When the administrator changes the ticket status to "IN_PROGRESS" again
+    Then "startedAt" keeps its original value
 
   Scenario: Closing a ticket in progress
-    Given there is a technical ticket in "In Progress" status with an assigned technician
-    When the technician completes the repair
-    Then the ticket is marked as "Completed"
-    And the equipment is released back to the public heatmap
+    Given there is a technical ticket in "IN_PROGRESS" status with an assigned technician
+    When the administrator completes the ticket
+    Then the ticket status changes to "RESOLVED"
+    And the equipment is released back to the public heatmap as "AVAILABLE"
 
-  Scenario: Manual technical ticket creation
-    Given the administrator detects an issue on "Elliptical 02" that did not generate an automatic alert
-    When the administrator creates a ticket for "Elliptical 02" with a description and a "High" priority
-    Then the ticket is registered in "Pending" status in the Maintenance Center
-    And "Elliptical 02" is shown as "Under Maintenance" on the heatmap
+  Scenario: Technical ticket creation from a maintenance request
+    Given a maintenance request exists for "Elliptical 02" with a description
+    When the administrator creates a ticket for the request with a "HIGH" priority
+    Then the ticket is registered in "OPEN" status in the Maintenance Center
+    And "Elliptical 02" is shown as "MAINTENANCE" on the heatmap
