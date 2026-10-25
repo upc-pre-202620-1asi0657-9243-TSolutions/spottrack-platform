@@ -20,6 +20,7 @@ import com.spottrack.platform.gym.interfaces.rest.resources.AddBranchResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.AddDniToWhitelistResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.AddZoneResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.CreateGymResource;
+import com.spottrack.platform.gym.interfaces.rest.resources.GymResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.GymSummaryResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.WhitelistEntryResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.ZoneResource;
@@ -30,6 +31,12 @@ import com.spottrack.platform.profiles.interfaces.acl.ProfilesContextFacade;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import com.spottrack.platform.shared.interfaces.rest.transform.ErrorResponseAssembler;
+import com.spottrack.platform.shared.interfaces.rest.resources.ErrorResource;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -63,6 +70,23 @@ public class GymController {
         this.gymContextFacade = gymContextFacade;
     }
 
+    @Operation(
+            summary = "Create a gym",
+            description = "Registers a new gym owned by the authenticated administrator. "
+                    + "The gym name is required and must not be blank."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Gym created",
+                    content = @Content(schema = @Schema(implementation = GymResource.class))),
+            @ApiResponse(responseCode = "400", description = "Validation error (e.g. blank gym name)",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller does not have the ADMIN role",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "404", description = "Authenticated administrator account not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createGym(Authentication authentication, @RequestBody CreateGymResource resource) {
