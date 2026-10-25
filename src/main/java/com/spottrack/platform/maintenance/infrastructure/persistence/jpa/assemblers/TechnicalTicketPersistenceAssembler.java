@@ -21,7 +21,8 @@ public class TechnicalTicketPersistenceAssembler {
                 entity.getMaintenanceStatus(),
                 entity.getCreatedAt() != null
                         ? entity.getCreatedAt().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
-                        : null
+                        : null,
+                entity.getStartedAt()
         );
     }
 
@@ -39,6 +40,7 @@ public class TechnicalTicketPersistenceAssembler {
         entity.setType(ticket.getType());
         entity.setTicketStatus(ticket.getTicketStatus().name());
         entity.setMaintenanceStatus(ticket.getMaintenanceStatus().name());
+        entity.setStartedAt(ticket.getStartedAt());
         return entity;
     }
 }

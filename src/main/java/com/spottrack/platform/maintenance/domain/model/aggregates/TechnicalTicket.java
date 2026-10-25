@@ -34,6 +34,7 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
     private TicketStatus ticketStatus;
     private MaintenanceStatus maintenanceStatus;
     private LocalDateTime createdAt;
+    private LocalDateTime startedAt;
 
     protected TechnicalTicket() {}
 
@@ -52,7 +53,8 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
 
     public TechnicalTicket(String ticketId, String maintenanceId, String equipmentId,
                            String technicianId, String description, TicketPriority priority, TicketType type,
-                           String ticketStatus, String maintenanceStatus, LocalDateTime createdAt) {
+                           String ticketStatus, String maintenanceStatus, LocalDateTime createdAt,
+                           LocalDateTime startedAt) {
         this.ticketId = new TechnicalTicketId(ticketId);
         this.maintenanceId = maintenanceId;
         this.equipmentId = equipmentId;
@@ -63,6 +65,7 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
         this.ticketStatus = TicketStatus.valueOf(ticketStatus);
         this.maintenanceStatus = MaintenanceStatus.valueOf(maintenanceStatus);
         this.createdAt = createdAt;
+        this.startedAt = startedAt;
     }
 
     public void assign(AssignTechnicalTicket command) {
@@ -71,6 +74,7 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
         }
         this.technicianId = command.technicianId();
         this.ticketStatus = TicketStatus.IN_PROGRESS;
+        registerStartIfFirstTime();
         registerDomainEvent(new TechnicalTicketAssignedEvent(this.ticketId.uuid(), this.technicianId, this.equipmentId));
     }
 
@@ -89,7 +93,16 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
             return;
         }
         this.ticketStatus = command.newStatus();
+        if (this.ticketStatus == TicketStatus.IN_PROGRESS) {
+            registerStartIfFirstTime();
+        }
         registerDomainEvent(new TicketStatusModifiedEvent(this.ticketId.uuid(), command.newStatus().name()));
+    }
+
+    private void registerStartIfFirstTime() {
+        if (this.startedAt == null) {
+            this.startedAt = LocalDateTime.now();
+        }
     }
 
     public void requestStatusUpdate(RequestUpdateMaintenanceStatus command) {

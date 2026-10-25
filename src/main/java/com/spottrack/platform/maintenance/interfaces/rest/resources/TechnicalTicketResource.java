@@ -17,5 +17,6 @@ public record TechnicalTicketResource(
         TicketType type,
         TicketStatus ticketStatus,
         MaintenanceStatus maintenanceStatus,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime startedAt
 ) {}
