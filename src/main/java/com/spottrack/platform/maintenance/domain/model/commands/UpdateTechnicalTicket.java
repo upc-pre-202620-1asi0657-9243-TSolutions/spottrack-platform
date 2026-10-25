@@ -6,8 +6,7 @@ import com.spottrack.platform.maintenance.domain.model.valueobjects.TicketType;
 
 /**
  * Edits a ticket's working data. technicianId is optional: when present it
- * reassigns an in-progress ticket; starting a ticket still goes through
- * AssignTechnicalTicket, the control point that moves it to IN_PROGRESS.
+ * sets or changes the technician without moving the ticket between statuses.
  */
 public record UpdateTechnicalTicket(
         TechnicalTicketId ticketId,

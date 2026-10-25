@@ -11,7 +11,7 @@ public record UpdateTechnicalTicketResource(
         TicketPriority priority,
         @Schema
         TicketType type,
-        @Schema(description = "Optional; reassigns an in-progress ticket to this technician")
+        @Schema(description = "Optional; sets or changes the technician without changing the status")
         String technicianId
 ) {
 }
