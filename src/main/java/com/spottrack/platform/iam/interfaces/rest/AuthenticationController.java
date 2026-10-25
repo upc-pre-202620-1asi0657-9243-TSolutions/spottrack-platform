@@ -15,6 +15,13 @@ import com.spottrack.platform.iam.interfaces.rest.transform.SignInCommandFromRes
 import com.spottrack.platform.iam.interfaces.rest.transform.SignUpCommandFromResourceAssembler;
 import com.spottrack.platform.iam.interfaces.rest.transform.UserResourceFromEntityAssembler;
 import com.spottrack.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
+import com.spottrack.platform.iam.interfaces.rest.resources.AuthenticatedUserResource;
+import com.spottrack.platform.shared.interfaces.rest.resources.ErrorResource;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -38,6 +45,17 @@ public class AuthenticationController {
         this.userCommandService = userCommandService;
     }
 
+    @Operation(
+            summary = "Sign in",
+            description = "Authenticates a user with username (email) and password and returns a JWT bearer token "
+                    + "together with the user's role, so the client can route to the matching dashboard."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Signed in successfully",
+                    content = @Content(schema = @Schema(implementation = AuthenticatedUserResource.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
     @PostMapping("/sign-in")
     public ResponseEntity<?> signIn(@Valid @RequestBody SignInResource resource) {
         var command = SignInCommandFromResourceAssembler.toCommandFromResource(resource);
