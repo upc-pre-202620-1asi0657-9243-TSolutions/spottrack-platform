@@ -1,6 +1,6 @@
-# One VM per env runs three containers on a shared Docker network:
-#   caddy (HTTPS :443) -> spottrack (API :8080) -> mysql (:3306)
-# MySQL data and Caddy certs live on a separate disk, so they survive VM rebuilds.
+# One VM per env runs two containers on a shared Docker network:
+#   caddy (HTTPS :443) -> spottrack (API :8080) -> Cloud SQL (see database.tf)
+# Caddy certs live on a separate disk, so they survive VM rebuilds.
 # Terraform builds the box; GitHub Actions ships the app (see scripts/deploy.sh).
 
 resource "google_service_account" "backend" {
@@ -37,7 +37,7 @@ locals {
   app_env = merge({
     SPRING_PROFILES_ACTIVE = "prod"
     PORT                   = "8080"
-    DATABASE_URL           = "mysql"
+    DATABASE_URL           = google_sql_database_instance.main.public_ip_address
     DATABASE_PORT          = "3306"
     DATABASE_NAME          = "spottrack"
     DATABASE_USER          = "spottrack"
@@ -96,6 +96,7 @@ resource "google_compute_instance" "backend" {
   depends_on = [
     google_secret_manager_secret_iam_member.backend,
     google_secret_manager_secret_version.generated,
+    google_sql_user.spottrack,
   ]
 }
 

@@ -47,3 +47,9 @@ variable "extra_app_env" {
   type    = map(string)
   default = {}
 }
+
+# db-f1-micro: shared core, 0.6 GB RAM, cheapest Cloud SQL tier.
+variable "db_tier" {
+  type    = string
+  default = "db-f1-micro"
+}

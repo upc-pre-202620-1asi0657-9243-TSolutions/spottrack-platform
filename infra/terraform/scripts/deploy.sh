@@ -2,7 +2,7 @@
 # Idempotent deploy, run as root on the backend VM:
 #   - by startup.sh on every boot
 #   - by GitHub Actions after it sets the app-image metadata
-# Keeps mysql and caddy running, replaces the app container.
+# Keeps caddy running, replaces the app container. The database is Cloud SQL.
 set -euo pipefail
 
 md() {
@@ -19,18 +19,6 @@ DATA=/mnt/data
 NET=spottrack
 
 docker network inspect "$NET" >/dev/null 2>&1 || docker network create "$NET"
-
-# MySQL: users and database are only created on the first start (empty data dir).
-if ! running mysql; then
-  docker rm -f mysql 2>/dev/null || true
-  docker run -d --name mysql --network "$NET" --restart=always \
-    -v "$DATA/mysql:/var/lib/mysql" \
-    -e MYSQL_ROOT_PASSWORD="$(secret mysql-root-password)" \
-    -e MYSQL_DATABASE=spottrack \
-    -e MYSQL_USER=spottrack \
-    -e MYSQL_PASSWORD="$(secret db-password)" \
-    mysql:8.4
-fi
 
 # Caddy: HTTPS with an automatic Let's Encrypt cert, proxies to the app.
 mkdir -p "$DATA/caddy"
