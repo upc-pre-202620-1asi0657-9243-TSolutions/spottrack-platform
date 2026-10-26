@@ -44,6 +44,7 @@ resource "google_project_service" "apis" {
     "sts.googleapis.com",
     "iap.googleapis.com",
     "oslogin.googleapis.com",
+    "sqladmin.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false
