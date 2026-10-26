@@ -8,7 +8,8 @@ Two environments, one GCP project (`spottrack-507400`). Every resource name star
 | `main`    | prod | same workflow, after approval on `prod` env  |
 
 Each env has:
-- **Backend VM** (`spottrack-<env>-backend`): Caddy (HTTPS) → API → MySQL 8.4, all in Docker. MySQL data sits on a separate disk (`spottrack-<env>-data`).
+- **Backend VM** (`spottrack-<env>-backend`): Caddy (HTTPS) → API, both in Docker.
+- **Cloud SQL MySQL 8.4** (`spottrack-<env>-mysql`, `db-f1-micro`). Only the backend VM's IP can connect, and only over TLS. Prod has daily backups and deletion protection.
 - **3 Mosquitto brokers** + a TCP load balancer for the emulator.
 - **Secrets** in Secret Manager (`spottrack-<env>-*`).
 
@@ -57,11 +58,11 @@ Same thing for `prod`. After the first apply, push to `develop` (or re-run the w
   ```bash
   gcloud compute ssh spottrack-dev-backend --zone us-central1-a --tunnel-through-iap
   sudo docker logs -f spottrack
-  sudo docker exec -it mysql mysql -u spottrack -p spottrack   # password: gcloud secrets versions access latest --secret spottrack-dev-db-password
   ```
 
 ## Notes
 
-- `./tf.sh <env> destroy` keeps nothing, including the MySQL data disk. Back up first: `sudo docker exec mysql mysqldump ...`.
+- DB shell from your laptop: `gcloud sql connect spottrack-dev-mysql --user spottrack` (password: `gcloud secrets versions access latest --secret spottrack-dev-db-password`).
+- `./tf.sh dev destroy` deletes the dev database too. Prod refuses until you set `deletion_protection` off.
 - The backend talks to the brokers by internal IP (same VPC). The emulator uses the `mqtt_lb_endpoint` output.
 - Point the frontend's API base URL at the env's `api_url`. If the frontend moves to a new host, add it to `allowedOriginPatterns` in `WebConfig.java`.
