@@ -39,6 +39,12 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
     ReservationId reservationId;
     boolean sessionIsInactive;
     boolean sessionIsActive;
+    /**
+     * First motion captured for this session; null until a sensor sees movement.
+     * Reservation trackers are born before anyone touches the machine, so
+     * createdAt can't stand in for when the equipment really started being used.
+     */
+    LocalDateTime firstActivityAt;
     LocalDateTime lastActivityAt;
     LocalDateTime createdAt;
 
@@ -53,7 +59,7 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
     }
 
 
-    public SessionTracker(Long id, String sessionTrackerId, String equipmentId, String reservationId, LocalTime continousActivity, LocalTime seconds, boolean sessionIsActive, boolean sessionIsInactive, LocalDateTime lastActivityAt, LocalDateTime createdAt){
+    public SessionTracker(Long id, String sessionTrackerId, String equipmentId, String reservationId, LocalTime continousActivity, LocalTime seconds, boolean sessionIsActive, boolean sessionIsInactive, LocalDateTime firstActivityAt, LocalDateTime lastActivityAt, LocalDateTime createdAt){
         this.id = id;
         this.sessionTrackerId = new SessionTrackerId(sessionTrackerId);
         this.equipmentId = new EquipmentId(equipmentId);
@@ -61,6 +67,7 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
         this.usageActivity = new UsageActivity(continousActivity, seconds);
         this.sessionIsActive = sessionIsActive;
         this.sessionIsInactive = sessionIsInactive;
+        this.firstActivityAt = firstActivityAt;
         this.lastActivityAt = lastActivityAt;
         this.createdAt = createdAt;
     }
@@ -74,6 +81,9 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
      */
     public void recordActivity() {
         this.lastActivityAt = LocalDateTime.now();
+        if (this.firstActivityAt == null) {
+            this.firstActivityAt = this.lastActivityAt;
+        }
         if (this.createdAt != null) {
             var elapsedSinceCreation = Duration.between(this.createdAt, this.lastActivityAt);
             this.usageActivity = new UsageActivity(
@@ -111,6 +121,7 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
         this.sessionIsInactive = true;
         registerDomainEvent(new UsageSessionEndedEvent(
                 this.sessionTrackerId,
+                this.equipmentId.uuid(),
                 this.reservationId != null ? this.reservationId.uuid() : null));
     }
 
@@ -147,7 +158,8 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
      */
     public LocalTime calculateSessionTime() {
         var trueActivity = computeTrueActivity();
-        registerDomainEvent(new SessionTimeCalculatedEvent(this.sessionTrackerId, this.equipmentId, trueActivity));
+        registerDomainEvent(new SessionTimeCalculatedEvent(
+                this.sessionTrackerId, this.equipmentId, trueActivity, this.firstActivityAt, this.lastActivityAt));
         return trueActivity;
     }
 
