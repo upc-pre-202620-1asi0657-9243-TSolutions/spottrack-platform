@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Locale;
+
 @RestController
 @RequestMapping("/api/v1/register-business")
 @Tag(name = "Business Registration", description = "Public endpoint to register a gym owner and initiate payment")
@@ -33,6 +35,8 @@ public class BusinessRegistrationController {
 
     @PostMapping
     public ResponseEntity<?> registerBusiness(@Valid @RequestBody BusinessRegistrationResource resource) {
+        var tier = MembershipTier.valueOf(resource.membershipTier().trim().toUpperCase(Locale.ROOT));
+
         var savePendingCommand = new SavePendingRegistrationCommand(
                 resource.email(),
                 resource.password(),
@@ -48,10 +52,8 @@ public class BusinessRegistrationController {
                 resource.streetAddress(),
                 resource.city(),
                 resource.district(),
-                resource.membershipTier()
+                tier.name()
         );
-
-        var tier = MembershipTier.valueOf(resource.membershipTier());
 
         var result = iamContextFacade.savePendingRegistration(savePendingCommand)
                 .flatMap(pendingId -> {

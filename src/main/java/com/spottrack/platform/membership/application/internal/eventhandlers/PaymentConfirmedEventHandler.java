@@ -1,5 +1,6 @@
 package com.spottrack.platform.membership.application.internal.eventhandlers;
 
+import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.membership.domain.model.aggregates.Membership;
 import com.spottrack.platform.membership.domain.model.commands.CreateMembershipCommand;
@@ -23,13 +24,16 @@ public class PaymentConfirmedEventHandler {
     private final MembershipRepository membershipRepository;
     private final IamContextFacade iamContextFacade;
     private final ProfilesContextFacade profilesContextFacade;
+    private final GymContextFacade gymContextFacade;
 
     PaymentConfirmedEventHandler(MembershipRepository membershipRepository,
                                  IamContextFacade iamContextFacade,
-                                 ProfilesContextFacade profilesContextFacade) {
+                                 ProfilesContextFacade profilesContextFacade,
+                                 GymContextFacade gymContextFacade) {
         this.membershipRepository = membershipRepository;
         this.iamContextFacade = iamContextFacade;
         this.profilesContextFacade = profilesContextFacade;
+        this.gymContextFacade = gymContextFacade;
     }
 
     @EventListener
@@ -145,6 +149,13 @@ public class PaymentConfirmedEventHandler {
         );
 
         createAndActivateMembership(userId, event);
+
+        if (companyName == null || companyName.isBlank()) {
+            log.error("Pending registration {} has no company name — gym not created (payment {}). Reprocess after fixing the data.",
+                    pendingId, event.paymentId());
+            return;
+        }
+        gymContextFacade.provisionGym(userId, companyName);
     }
 
     private void createAndActivateMembership(Long userId, PaymentConfirmedEvent event) {
