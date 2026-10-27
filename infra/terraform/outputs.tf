@@ -1,3 +1,12 @@
+output "api_url" {
+  description = "Point the frontend here."
+  value       = "https://${local.domain}"
+}
+
+output "backend_vm" {
+  value = google_compute_instance.backend.name
+}
+
 output "mqtt_lb_endpoint" {
   description = "Point the emulator here."
   value       = "tcp://${google_compute_address.mqtt.address}:1883"
