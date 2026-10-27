@@ -4,9 +4,11 @@ import com.spottrack.platform.reservation.application.commandServices.Reservatio
 import com.spottrack.platform.reservation.domain.model.commands.EndReservation;
 import com.spottrack.platform.reservation.domain.model.events.ReservationTimerStartedEvent;
 import com.spottrack.platform.reservation.domain.model.valueobjects.ReservationId;
+import com.spottrack.platform.reservation.interfaces.events.RequestOccupyEquipmentSubmittedIntegrationEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
@@ -30,16 +32,23 @@ public class ReservationTimerStartedEventHandler {
 
     private final TaskScheduler taskScheduler;
     private final ReservationCommandService reservationCommandService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ReservationTimerStartedEventHandler(@Qualifier("reservationTaskScheduler") TaskScheduler taskScheduler,
-                                               ReservationCommandService reservationCommandService) {
+                                               ReservationCommandService reservationCommandService,
+                                               ApplicationEventPublisher eventPublisher) {
         this.taskScheduler = taskScheduler;
         this.reservationCommandService = reservationCommandService;
+        this.eventPublisher = eventPublisher;
     }
 
     @EventListener
     public void on(ReservationTimerStartedEvent event) {
         var expiryInstant = event.timerExpiry().atZone(ZoneId.systemDefault()).toInstant();
+
+        // Ensure equipment status is OCCUPIED in gym context
+        eventPublisher.publishEvent(new RequestOccupyEquipmentSubmittedIntegrationEvent(
+                event.reservationId(), event.equipmentId()));
 
         // Schedule the expiry task to run exactly when the timer runs out
         taskScheduler.schedule(() -> onTimerExpired(event.reservationId()), expiryInstant);

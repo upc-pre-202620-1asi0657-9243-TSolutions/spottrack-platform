@@ -44,3 +44,6 @@ build/
 ### Local profile overrides (never commit) ###
 src/main/resources/application-local.properties
 
+
+# Local environment secrets
+.env
