@@ -16,6 +16,7 @@ import com.spottrack.platform.maintenance.domain.model.commands.ModifyTicketStat
 import com.spottrack.platform.maintenance.domain.model.commands.RecommendEquipmentTransfer;
 import com.spottrack.platform.maintenance.domain.model.commands.RegisterMaintenanceCompletion;
 import com.spottrack.platform.maintenance.domain.model.commands.RequestMaintenance;
+import com.spottrack.platform.maintenance.domain.model.commands.UpdateTechnicalTicket;
 import com.spottrack.platform.maintenance.domain.model.commands.RequestUpdateMaintenanceStatus;
 import com.spottrack.platform.maintenance.domain.model.commands.UpdateMaintenanceStatus;
 import com.spottrack.platform.maintenance.domain.model.events.EquipmentTransferRecommendedEvent;
@@ -107,6 +108,27 @@ public class MaintenanceCommandServiceImpl implements MaintenanceCommandService 
             ticket.assign(command);
             var saved = technicalTicketRepository.save(ticket);
             return Result.success(saved);
+        } catch (IllegalStateException e) {
+            return Result.failure(ApplicationError.validationError("TechnicalTicket", e.getMessage()));
+        }
+    }
+
+    @Transactional
+    @Override
+    public Result<TechnicalTicket, ApplicationError> handle(UpdateTechnicalTicket command) {
+        var technicianId = command.technicianId();
+        if (technicianId != null && !technicianId.isBlank()
+                && !technicianRepository.existsById(new TechnicianId(technicianId))) {
+            return Result.failure(ApplicationError.notFound("Technician", technicianId));
+        }
+        var found = technicalTicketRepository.findById(command.ticketId());
+        if (found.isEmpty()) {
+            return Result.failure(ApplicationError.notFound("TechnicalTicket", command.ticketId().uuid()));
+        }
+        try {
+            var ticket = found.get();
+            ticket.update(command);
+            return Result.success(technicalTicketRepository.save(ticket));
         } catch (IllegalStateException e) {
             return Result.failure(ApplicationError.validationError("TechnicalTicket", e.getMessage()));
         }

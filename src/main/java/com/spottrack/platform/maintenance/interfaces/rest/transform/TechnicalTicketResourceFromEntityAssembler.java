@@ -16,7 +16,8 @@ public class TechnicalTicketResourceFromEntityAssembler {
                 ticket.getType(),
                 ticket.getTicketStatus(),
                 ticket.getMaintenanceStatus(),
-                ticket.getCreatedAt()
+                ticket.getCreatedAt(),
+                ticket.getStartedAt()
         );
     }
 }

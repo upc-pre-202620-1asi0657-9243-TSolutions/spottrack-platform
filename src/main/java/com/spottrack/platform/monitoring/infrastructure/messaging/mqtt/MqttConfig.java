@@ -1,31 +1,20 @@
 package com.spottrack.platform.monitoring.infrastructure.messaging.mqtt;
 
-import org.eclipse.paho.client.mqttv3.MqttClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.UUID;
+import java.util.List;
 
 //@Configuration
 public class MqttConfig {
 
-    @Value("${mqtt.broker-url}")
-    private String brokerUrl;
-
-    @Bean(destroyMethod = "disconnect")
-    public MqttClient mqttClient() throws Exception {
-        var clientId = "spottrack-backend-" + UUID.randomUUID();
-        var client = new MqttClient(brokerUrl, clientId, new MemoryPersistence());
-
-        var options = new MqttConnectOptions();
-        options.setAutomaticReconnect(true);
-        options.setCleanSession(true);
-        options.setConnectionTimeout(10);
-
-        client.connect(options);
-        return client;
+    /**
+     * One subscriber connection per broker of the cluster. Falls back to the
+     * single {@code mqtt.broker-url} when {@code mqtt.broker-urls} is not set.
+     */
+    @Bean
+    public MqttBrokerPool mqttBrokerPool(@Value("${mqtt.broker-urls}") List<String> brokerUrls) {
+        return new MqttBrokerPool(brokerUrls);
     }
 }

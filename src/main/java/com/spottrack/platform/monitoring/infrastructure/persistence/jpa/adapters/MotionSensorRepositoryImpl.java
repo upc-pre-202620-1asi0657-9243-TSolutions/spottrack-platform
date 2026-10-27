@@ -9,7 +9,6 @@ import com.spottrack.platform.monitoring.infrastructure.persistence.jpa.reposito
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,13 +49,6 @@ public class MotionSensorRepositoryImpl implements MotionSensorRepository {
     @Override
     public List<MotionSensor> findAllOnline() {
         return motionSensorPersistenceRepository.findByOnlineTrue().stream()
-                .map(MotionSensorPersistenceAssembler::toDomainFromPersistence)
-                .toList();
-    }
-
-    @Override
-    public List<MotionSensor> findAllOfflineSince(LocalDateTime threshold) {
-        return motionSensorPersistenceRepository.findByOnlineFalseAndLastStatusChangeAtBefore(threshold).stream()
                 .map(MotionSensorPersistenceAssembler::toDomainFromPersistence)
                 .toList();
     }

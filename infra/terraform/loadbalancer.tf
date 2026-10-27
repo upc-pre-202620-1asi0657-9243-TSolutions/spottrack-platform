@@ -5,8 +5,8 @@
 # Healthy = broker accepts a TCP connection on 1883.
 # Must be regional: the TCP balancer rejects global health checks.
 resource "google_compute_region_health_check" "mqtt" {
-  name   = "spottrack-mqtt-hc"
-  region = "us-central1"
+  name   = "${local.name}-mqtt-hc"
+  region = var.region
 
   tcp_health_check {
     port = 1883
@@ -14,8 +14,8 @@ resource "google_compute_region_health_check" "mqtt" {
 }
 
 resource "google_compute_region_backend_service" "mqtt" {
-  name                  = "spottrack-mqtt-backend"
-  region                = "us-central1"
+  name                  = "${local.name}-mqtt-backend"
+  region                = var.region
   load_balancing_scheme = "EXTERNAL"
   protocol              = "TCP"
   health_checks         = [google_compute_region_health_check.mqtt.id]
@@ -27,13 +27,13 @@ resource "google_compute_region_backend_service" "mqtt" {
 }
 
 resource "google_compute_address" "mqtt" {
-  name   = "spottrack-mqtt-ip"
-  region = "us-central1"
+  name   = "${local.name}-mqtt-ip"
+  region = var.region
 }
 
 resource "google_compute_forwarding_rule" "mqtt" {
-  name                  = "spottrack-mqtt-rule"
-  region                = "us-central1"
+  name                  = "${local.name}-mqtt-rule"
+  region                = var.region
   load_balancing_scheme = "EXTERNAL"
   ip_protocol           = "TCP"
   ports                 = ["1883"]

@@ -12,6 +12,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "technical_tickets")
 @Getter
@@ -47,4 +49,7 @@ public class TechnicalTicketPersistenceEntity extends AuditableAbstractPersisten
 
     @Column(nullable = false)
     private String maintenanceStatus;
+
+    @Column(nullable = true)
+    private LocalDateTime startedAt;
 }

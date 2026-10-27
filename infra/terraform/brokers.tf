@@ -4,18 +4,18 @@
 # Fixed internal IPs, so the backend always knows where each broker is.
 resource "google_compute_address" "broker_internal" {
   count        = var.broker_count
-  name         = "spottrack-broker-${count.index + 1}-internal"
+  name         = "${local.name}-broker-${count.index + 1}-internal"
   address_type = "INTERNAL"
   subnetwork   = "default"
-  region       = "us-central1"
+  region       = var.region
 }
 
 resource "google_compute_instance" "broker" {
   count        = var.broker_count
-  name         = "spottrack-broker-${count.index + 1}"
+  name         = "${local.name}-broker-${count.index + 1}"
   machine_type = "e2-micro"
-  zone         = "us-central1-a"
-  tags         = ["spottrack-broker"]
+  zone         = var.zone
+  tags         = ["${local.name}-broker"]
 
   boot_disk {
     initialize_params {
@@ -49,18 +49,18 @@ resource "google_compute_instance" "broker" {
 
 # Unmanaged group: just a list of the 3 broker VMs for the load balancer to use.
 resource "google_compute_instance_group" "brokers" {
-  name      = "spottrack-brokers"
-  zone      = "us-central1-a"
+  name      = "${local.name}-brokers"
+  zone      = var.zone
   instances = google_compute_instance.broker[*].self_link
 }
 
 # Passthrough load balancing keeps the client's real IP, so the emulator itself
 # (not a Google proxy) connects to the brokers. Health checkers are covered too.
 resource "google_compute_firewall" "allow_mqtt" {
-  name          = "spottrack-allow-mqtt"
+  name          = "${local.name}-allow-mqtt"
   network       = "default"
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["spottrack-broker"]
+  target_tags   = ["${local.name}-broker"]
 
   allow {
     protocol = "tcp"

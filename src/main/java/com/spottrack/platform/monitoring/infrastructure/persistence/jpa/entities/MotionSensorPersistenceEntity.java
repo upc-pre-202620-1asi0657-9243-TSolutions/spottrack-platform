@@ -33,4 +33,6 @@ public class MotionSensorPersistenceEntity extends AuditableAbstractPersistenceE
 
     @Column(nullable = false)
     private LocalDateTime lastStatusChangeAt;
+
+    private LocalDateTime lastSeenAt;
 }

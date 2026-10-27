@@ -3,6 +3,7 @@ package com.spottrack.platform.maintenance.domain.model.aggregates;
 import com.spottrack.platform.maintenance.domain.model.commands.AssignTechnicalTicket;
 import com.spottrack.platform.maintenance.domain.model.commands.ModifyTicketStatus;
 import com.spottrack.platform.maintenance.domain.model.commands.RequestUpdateMaintenanceStatus;
+import com.spottrack.platform.maintenance.domain.model.commands.UpdateTechnicalTicket;
 import com.spottrack.platform.maintenance.domain.model.commands.UpdateMaintenanceStatus;
 import com.spottrack.platform.maintenance.domain.model.events.MaintenanceStatusUpdateRequestedEvent;
 import com.spottrack.platform.maintenance.domain.model.events.MaintenanceStatusUpdatedEvent;
@@ -34,6 +35,7 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
     private TicketStatus ticketStatus;
     private MaintenanceStatus maintenanceStatus;
     private LocalDateTime createdAt;
+    private LocalDateTime startedAt;
 
     protected TechnicalTicket() {}
 
@@ -52,7 +54,8 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
 
     public TechnicalTicket(String ticketId, String maintenanceId, String equipmentId,
                            String technicianId, String description, TicketPriority priority, TicketType type,
-                           String ticketStatus, String maintenanceStatus, LocalDateTime createdAt) {
+                           String ticketStatus, String maintenanceStatus, LocalDateTime createdAt,
+                           LocalDateTime startedAt) {
         this.ticketId = new TechnicalTicketId(ticketId);
         this.maintenanceId = maintenanceId;
         this.equipmentId = equipmentId;
@@ -63,6 +66,7 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
         this.ticketStatus = TicketStatus.valueOf(ticketStatus);
         this.maintenanceStatus = MaintenanceStatus.valueOf(maintenanceStatus);
         this.createdAt = createdAt;
+        this.startedAt = startedAt;
     }
 
     public void assign(AssignTechnicalTicket command) {
@@ -71,7 +75,26 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
         }
         this.technicianId = command.technicianId();
         this.ticketStatus = TicketStatus.IN_PROGRESS;
+        registerStartIfFirstTime();
         registerDomainEvent(new TechnicalTicketAssignedEvent(this.ticketId.uuid(), this.technicianId, this.equipmentId));
+    }
+
+    /**
+     * Edits description, priority and type, and sets or changes the technician.
+     * Assigning does not move the ticket: status changes are explicit (see
+     * modifyStatus). A resolved ticket is closed history.
+     */
+    public void update(UpdateTechnicalTicket command) {
+        if (this.ticketStatus == TicketStatus.RESOLVED) {
+            throw new IllegalStateException("maintenance.error.ticket.resolvedIsFinal");
+        }
+        var technicianId = command.technicianId();
+        if (technicianId != null && !technicianId.isBlank()) {
+            this.technicianId = technicianId;
+        }
+        this.description = command.description().trim();
+        this.priority = command.priority();
+        this.type = command.type();
     }
 
     public void markAsResolved() {
@@ -83,13 +106,41 @@ public class TechnicalTicket extends AbstractDomainAggregateRoot<TechnicalTicket
         registerDomainEvent(new TicketStatusMarkedAsResolvedEvent(this.ticketId.uuid(), this.equipmentId));
     }
 
+    /**
+     * Moves the ticket between board columns. Work can only start with a
+     * technician on the ticket, and starting it puts the equipment under
+     * maintenance, just like an assignment. Resolved tickets stay resolved.
+     */
     public void modifyStatus(ModifyTicketStatus command) {
-        if (command.newStatus() == TicketStatus.RESOLVED) {
+        if (this.ticketStatus == TicketStatus.RESOLVED) {
+            throw new IllegalStateException("maintenance.error.ticket.resolvedIsFinal");
+        }
+        var newStatus = command.newStatus();
+        if (newStatus == null) {
+            throw new IllegalStateException("maintenance.error.ticket.statusRequired");
+        }
+        if (newStatus == this.ticketStatus) return;
+        if (newStatus == TicketStatus.RESOLVED) {
             markAsResolved();
             return;
         }
-        this.ticketStatus = command.newStatus();
-        registerDomainEvent(new TicketStatusModifiedEvent(this.ticketId.uuid(), command.newStatus().name()));
+        if (newStatus == TicketStatus.IN_PROGRESS) {
+            if (this.technicianId == null || this.technicianId.isBlank()) {
+                throw new IllegalStateException("maintenance.error.ticket.technicianRequired");
+            }
+            this.ticketStatus = TicketStatus.IN_PROGRESS;
+            registerStartIfFirstTime();
+            registerDomainEvent(new TechnicalTicketAssignedEvent(this.ticketId.uuid(), this.technicianId, this.equipmentId));
+            return;
+        }
+        this.ticketStatus = newStatus;
+        registerDomainEvent(new TicketStatusModifiedEvent(this.ticketId.uuid(), newStatus.name()));
+    }
+
+    private void registerStartIfFirstTime() {
+        if (this.startedAt == null) {
+            this.startedAt = LocalDateTime.now();
+        }
     }
 
     public void requestStatusUpdate(RequestUpdateMaintenanceStatus command) {
