@@ -6,7 +6,13 @@ import com.spottrack.platform.membership.domain.model.valueobjects.PaymentStatus
 import com.spottrack.platform.membership.domain.repositories.PaymentRepository;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.interfaces.rest.transform.ErrorResponseAssembler;
+import com.spottrack.platform.shared.interfaces.rest.resources.ErrorResource;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +47,19 @@ public class PaymentAdminController {
                     "provisioning (account, profiles, membership) failed. Safe to call multiple times — " +
                     "each downstream step is idempotent."
     )
-    public ResponseEntity<?> reprocessPayment(@PathVariable UUID paymentId) {
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Event re-published; the body contains paymentId and status reprocess_triggered"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller does not have the ADMIN role",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "404", description = "Payment not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "422", description = "Payment is not in CONFIRMED status",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
+    public ResponseEntity<?> reprocessPayment(
+            @Parameter(description = "Identifier of the payment to reprocess") @PathVariable UUID paymentId) {
         var payment = paymentRepository.findByPaymentId(new PaymentId(paymentId));
         if (payment.isEmpty()) {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(

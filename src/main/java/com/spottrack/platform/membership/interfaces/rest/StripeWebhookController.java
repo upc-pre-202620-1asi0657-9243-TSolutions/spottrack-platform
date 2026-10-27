@@ -13,6 +13,10 @@ import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,9 +47,22 @@ public class StripeWebhookController {
         this.paymentCommandService = paymentCommandService;
     }
 
+    @Operation(
+            summary = "Receive Stripe webhook events",
+            description = "Called by Stripe, not by the frontend. Verifies the Stripe-Signature header against the "
+                    + "configured webhook secret. checkout.session.completed confirms the payment and triggers the "
+                    + "provisioning (account, profiles, membership and gym); checkout.session.expired marks it as failed. "
+                    + "Other event types are ignored. Always answers 200 for a valid signature, even if processing fails; "
+                    + "failures are logged and can be recovered through the admin reprocess endpoint."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Event accepted (processed or ignored)"),
+            @ApiResponse(responseCode = "400", description = "Invalid Stripe signature or missing Stripe-Signature header")
+    })
     @PostMapping("/stripe")
     public ResponseEntity<Void> handleStripeEvent(
             @RequestBody byte[] payload,
+            @Parameter(description = "Signature computed by Stripe over the raw payload", required = true)
             @RequestHeader("Stripe-Signature") String sigHeader
     ) {
         Event event;
