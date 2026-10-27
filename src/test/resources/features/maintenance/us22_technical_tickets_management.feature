@@ -14,7 +14,7 @@ Feature: Technical ticket management in the Maintenance Center
     And the start of the attention is registered in "startedAt"
 
   Scenario: Starting an open ticket by changing its status
-    Given there is a technical ticket in "OPEN" status
+    Given there is a technical ticket in "OPEN" status with an assigned technician
     When the administrator changes the ticket status to "IN_PROGRESS"
     Then the ticket status changes to "IN_PROGRESS"
     And the start of the attention is registered in "startedAt"
