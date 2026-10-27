@@ -74,6 +74,16 @@ public record ApplicationError(
     }
 
     /**
+     * Unauthorized error: the caller could not be authenticated (e.g. invalid credentials)
+     */
+    public static ApplicationError unauthorized(String reason) {
+        return new ApplicationError(
+                "UNAUTHORIZED",
+                "Authentication failed",
+                reason);
+    }
+
+    /**
      * Forbidden error: caller does not own the requested resource
      */
     public static ApplicationError forbidden(String resource, String reason) {

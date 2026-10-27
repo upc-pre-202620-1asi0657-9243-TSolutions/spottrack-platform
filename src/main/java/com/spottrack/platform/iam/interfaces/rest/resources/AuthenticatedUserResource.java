@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record AuthenticatedUserResource(
         @Schema(description = "User identifier") Long id,
         @Schema(description = "Username (email)") String username,
+        @Schema(description = "Role of the user", example = "ROLE_ADMIN") String role,
         @Schema(description = "JWT bearer token") String token
 ) {
 }

@@ -99,11 +99,11 @@ public class UserCommandServiceImpl implements UserCommandService {
     public Result<ImmutablePair<User, String>, ApplicationError> handle(SignInCommand command) {
         var userOptional = userRepository.findByUsername(command.username());
         if (userOptional.isEmpty()) {
-            return Result.failure(ApplicationError.validationError("credentials", "Invalid credentials"));
+            return Result.failure(ApplicationError.unauthorized("Invalid credentials"));
         }
         var user = userOptional.get();
         if (!hashingService.matches(command.password(), user.getPassword())) {
-            return Result.failure(ApplicationError.validationError("credentials", "Invalid credentials"));
+            return Result.failure(ApplicationError.unauthorized("Invalid credentials"));
         }
         if (!user.isActive()) {
             return Result.failure(ApplicationError.businessRuleViolation("account.deactivated", "This account has been deactivated"));
