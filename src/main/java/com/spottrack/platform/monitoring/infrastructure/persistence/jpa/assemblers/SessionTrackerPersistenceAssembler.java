@@ -10,6 +10,7 @@ public class SessionTrackerPersistenceAssembler {
         return new SessionTracker(
                 entity.getId(), entity.getSessionTrackerId(), entity.getEquipmentId(), entity.getReservationId(),
                 entity.getContinuousActivity(), entity.getSeconds(), entity.isSessionIsActive(), entity.isSessionIsInactive(),
+                entity.getFirstActivityAt(),
                 entity.getLastActivityAt(),
                 entity.getCreatedAt() != null
                         ? entity.getCreatedAt().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
@@ -26,6 +27,7 @@ public class SessionTrackerPersistenceAssembler {
         persistenceEntity.setSeconds((entity.getUsageActivity().seconds()));
         persistenceEntity.setSessionIsActive(entity.isSessionIsActive());
         persistenceEntity.setSessionIsInactive(entity.isSessionIsInactive());
+        persistenceEntity.setFirstActivityAt(entity.getFirstActivityAt());
         persistenceEntity.setLastActivityAt(entity.getLastActivityAt());
         return persistenceEntity;
     }

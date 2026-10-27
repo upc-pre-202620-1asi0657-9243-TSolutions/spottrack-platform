@@ -41,6 +41,8 @@ public class SessionTrackerPersistenceEntity extends AuditableAbstractPersistenc
     @Column(nullable = false)
     LocalTime continuousActivity;
     @Column
+    LocalDateTime firstActivityAt;
+    @Column
     LocalDateTime lastActivityAt;
 
 }
