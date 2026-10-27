@@ -18,6 +18,7 @@ import com.spottrack.platform.maintenance.domain.model.commands.RecommendEquipme
 import com.spottrack.platform.maintenance.domain.model.commands.RegisterMaintenanceCompletion;
 import com.spottrack.platform.maintenance.domain.model.commands.RequestUpdateMaintenanceStatus;
 import com.spottrack.platform.maintenance.domain.model.commands.UpdateMaintenanceStatus;
+import com.spottrack.platform.maintenance.domain.model.commands.UpdateTechnicalTicket;
 import com.spottrack.platform.maintenance.domain.model.queries.GetAllTechniciansQuery;
 import com.spottrack.platform.maintenance.domain.model.queries.GetMaintenanceLogsByTicketIdQuery;
 import com.spottrack.platform.maintenance.domain.model.valueobjects.MaintenanceId;
@@ -30,6 +31,7 @@ import com.spottrack.platform.maintenance.infrastructure.persistence.jpa.reposit
 import com.spottrack.platform.maintenance.interfaces.rest.resources.CreateTechnicalTicketResource;
 import com.spottrack.platform.maintenance.interfaces.rest.resources.CreateTechnicianResource;
 import com.spottrack.platform.maintenance.interfaces.rest.resources.DecommissionEquipmentResource;
+import com.spottrack.platform.maintenance.interfaces.rest.resources.UpdateTechnicalTicketResource;
 import com.spottrack.platform.maintenance.interfaces.rest.resources.ModifyTicketStatusResource;
 import com.spottrack.platform.maintenance.interfaces.rest.resources.RegisterMaintenanceCompletionResource;
 import com.spottrack.platform.maintenance.interfaces.rest.resources.RequestMaintenanceResource;
@@ -162,6 +164,35 @@ public class MaintenanceController {
         var ownershipError = checkTicketOwnership(ticketId, adminUserId);
         if (ownershipError.isPresent()) return ownershipError.get();
         var command = new AssignTechnicalTicket(new TechnicalTicketId(ticketId), technicianId);
+        var result = commandService.handle(command);
+        return switch (result) {
+            case Result.Success<TechnicalTicket, ApplicationError> s ->
+                    ResponseEntity.ok(TechnicalTicketResourceFromEntityAssembler.toResourceFromEntity(s.value()));
+            case Result.Failure<TechnicalTicket, ApplicationError> f ->
+                    ErrorResponseAssembler.toErrorResponseFromApplicationError(f.error());
+        };
+    }
+
+    @PatchMapping("/tickets/{ticketId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> updateTechnicalTicket(Authentication authentication,
+                                                   @PathVariable String ticketId,
+                                                   @RequestBody UpdateTechnicalTicketResource resource) {
+        var adminUserId = resolveAdminUserId(authentication);
+        if (adminUserId == 0L) {
+            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.notFound("Admin", authentication.getName()));
+        }
+        var ownershipError = checkTicketOwnership(ticketId, adminUserId);
+        if (ownershipError.isPresent()) return ownershipError.get();
+        UpdateTechnicalTicket command;
+        try {
+            command = new UpdateTechnicalTicket(new TechnicalTicketId(ticketId), resource.description(),
+                    resource.priority(), resource.type(), resource.technicianId());
+        } catch (IllegalArgumentException e) {
+            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.validationError("TechnicalTicket", e.getMessage()));
+        }
         var result = commandService.handle(command);
         return switch (result) {
             case Result.Success<TechnicalTicket, ApplicationError> s ->

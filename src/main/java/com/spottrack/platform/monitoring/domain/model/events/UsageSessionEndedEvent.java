@@ -5,5 +5,5 @@ import com.spottrack.platform.monitoring.domain.model.valueobjects.SessionTracke
 /**
  * @param reservationId null for walk-up usage (no booked reservation to cascade to)
  */
-public record UsageSessionEndedEvent(SessionTrackerId sessionTrackerId, String reservationId) {
+public record UsageSessionEndedEvent(SessionTrackerId sessionTrackerId, String equipmentId, String reservationId) {
 }
