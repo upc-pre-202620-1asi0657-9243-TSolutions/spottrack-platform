@@ -37,4 +37,10 @@ public interface ProfilesContextFacade {
      * with the gym identified by gymId.
      */
     boolean hasActiveAssociationWithGym(Long clientId, String gymId);
+
+    /**
+     * Returns true if the client is associated with the gym (active or not) and their DNI is still
+     * whitelisted there. Returns false if the client has no complete profile.
+     */
+    boolean hasAssociationWithGym(Long clientId, String gymId);
 }
