@@ -61,12 +61,14 @@ public class RoutineSessionsController {
     }
 
     @PostMapping
-    @Operation(summary = "Start a routine session", description = "Starts a new routine session for the authenticated client.")
+    @Operation(summary = "Start a routine session", description = "Starts a new routine session for the authenticated client. Returns 403 if the routine belongs to another client or the gym membership is not active, and 409 if the client already has a session of this routine in progress.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Routine session started successfully",
                     content = @Content(schema = @Schema(implementation = RoutineSessionResource.class))),
             @ApiResponse(responseCode = "400", description = "Invalid input data"),
-            @ApiResponse(responseCode = "404", description = "Client profile not found")
+            @ApiResponse(responseCode = "403", description = "Access denied: routine belongs to another client or gym membership is not active"),
+            @ApiResponse(responseCode = "404", description = "Client profile or routine not found"),
+            @ApiResponse(responseCode = "409", description = "A session of this routine is already in progress")
     })
     public ResponseEntity<?> startRoutineSession(
             Authentication authentication,
@@ -137,12 +139,13 @@ public class RoutineSessionsController {
     }
 
     @PostMapping("/{routineSessionId}/completions")
-    @Operation(summary = "Complete a routine session", description = "Marks a routine session as completed. Returns 403 if the session does not belong to the authenticated client.")
+    @Operation(summary = "Complete a routine session", description = "Marks a routine session as completed. Returns 403 if the session does not belong to the authenticated client or the gym membership is not active, and 409 if the session is not in progress.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Routine session completed successfully",
                     content = @Content(schema = @Schema(implementation = RoutineSessionResource.class))),
             @ApiResponse(responseCode = "403", description = "Access denied"),
-            @ApiResponse(responseCode = "404", description = "Routine session not found")
+            @ApiResponse(responseCode = "404", description = "Routine session not found"),
+            @ApiResponse(responseCode = "409", description = "Routine session is not in progress")
     })
     public ResponseEntity<?> completeRoutineSession(
             Authentication authentication,
@@ -157,14 +160,7 @@ public class RoutineSessionsController {
         }
         var membershipError = gymMembershipAccessGuard.check(clientId);
         if (membershipError.isPresent()) return membershipError.get();
-        var session = routineSessionQueryService.handle(new GetRoutineSessionByIdQuery(routineSessionId));
-        if (session.isEmpty()) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("RoutineSession", routineSessionId.toString()));
-        }
-        var ownershipError = checkOwnership(session.get().getClientId().clientId(), clientId, routineSessionId.toString());
-        if (ownershipError.isPresent()) return ownershipError.get();
-        var command = new CompleteRoutineCommand(routineSessionId);
+        var command = new CompleteRoutineCommand(routineSessionId, new ClientId(clientId));
         var result = routineSessionCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
@@ -174,12 +170,13 @@ public class RoutineSessionsController {
     }
 
     @PostMapping("/{routineSessionId}/missed")
-    @Operation(summary = "Mark routine session as missed", description = "Marks a routine session as missed. Returns 403 if the session does not belong to the authenticated client.")
+    @Operation(summary = "Mark routine session as missed", description = "Marks a routine session as missed. Returns 403 if the session does not belong to the authenticated client, and 409 if the session is not in progress.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Routine session marked as missed",
                     content = @Content(schema = @Schema(implementation = RoutineSessionResource.class))),
             @ApiResponse(responseCode = "403", description = "Access denied"),
-            @ApiResponse(responseCode = "404", description = "Routine session not found")
+            @ApiResponse(responseCode = "404", description = "Routine session not found"),
+            @ApiResponse(responseCode = "409", description = "Routine session is not in progress")
     })
     public ResponseEntity<?> markRoutineSessionMissed(
             Authentication authentication,
@@ -192,14 +189,7 @@ public class RoutineSessionsController {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Client", authentication.getName()));
         }
-        var session = routineSessionQueryService.handle(new GetRoutineSessionByIdQuery(routineSessionId));
-        if (session.isEmpty()) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("RoutineSession", routineSessionId.toString()));
-        }
-        var ownershipError = checkOwnership(session.get().getClientId().clientId(), clientId, routineSessionId.toString());
-        if (ownershipError.isPresent()) return ownershipError.get();
-        var command = new MarkRoutineMissedCommand(routineSessionId);
+        var command = new MarkRoutineMissedCommand(routineSessionId, new ClientId(clientId));
         var result = routineSessionCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
@@ -209,13 +199,14 @@ public class RoutineSessionsController {
     }
 
     @PatchMapping("/{routineSessionId}/exercise-blocks/{exerciseBlockId}")
-    @Operation(summary = "Mark an exercise block as completed or not", description = "Sets the completion state of an exercise block for this routine session. Returns 403 if the session does not belong to the authenticated client.")
+    @Operation(summary = "Mark an exercise block as completed or not", description = "Sets the completion state of an exercise block for this routine session. Marking an already completed block is idempotent and setting completed=false un-marks it. Returns 403 if the session does not belong to the authenticated client or the gym membership is not active, and 409 if the session is not in progress.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Completion state updated successfully",
                     content = @Content(schema = @Schema(implementation = RoutineSessionResource.class))),
             @ApiResponse(responseCode = "400", description = "Exercise block does not belong to this routine"),
             @ApiResponse(responseCode = "403", description = "Access denied"),
-            @ApiResponse(responseCode = "404", description = "Routine session not found")
+            @ApiResponse(responseCode = "404", description = "Routine session not found"),
+            @ApiResponse(responseCode = "409", description = "Routine session is not in progress")
     })
     public ResponseEntity<?> setExerciseBlockCompletion(
             Authentication authentication,
@@ -232,14 +223,10 @@ public class RoutineSessionsController {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Client", authentication.getName()));
         }
-        var session = routineSessionQueryService.handle(new GetRoutineSessionByIdQuery(routineSessionId));
-        if (session.isEmpty()) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("RoutineSession", routineSessionId.toString()));
-        }
-        var ownershipError = checkOwnership(session.get().getClientId().clientId(), clientId, routineSessionId.toString());
-        if (ownershipError.isPresent()) return ownershipError.get();
-        var command = new SetExerciseBlockCompletionCommand(routineSessionId, exerciseBlockId, resource.completed());
+        var membershipError = gymMembershipAccessGuard.check(clientId);
+        if (membershipError.isPresent()) return membershipError.get();
+        var command = new SetExerciseBlockCompletionCommand(
+                routineSessionId, new ClientId(clientId), exerciseBlockId, resource.completed());
         var result = routineSessionCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,

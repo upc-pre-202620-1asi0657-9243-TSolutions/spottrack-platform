@@ -2,6 +2,7 @@ package com.spottrack.platform.routine.infrastructure.persistence.jpa.adapters;
 
 import com.spottrack.platform.routine.domain.model.aggregates.RoutineSession;
 import com.spottrack.platform.routine.domain.model.valueobjects.ClientId;
+import com.spottrack.platform.routine.domain.model.valueobjects.RoutineSessionStatus;
 import com.spottrack.platform.routine.domain.repositories.RoutineSessionRepository;
 import com.spottrack.platform.routine.infrastructure.persistence.jpa.assemblers.RoutineSessionPersistenceAssembler;
 import com.spottrack.platform.routine.infrastructure.persistence.jpa.repositories.RoutineSessionPersistenceRepository;
@@ -40,6 +41,14 @@ public class RoutineSessionRepositoryImpl implements RoutineSessionRepository {
                 .stream()
                 .map(RoutineSessionPersistenceAssembler::toDomainFromPersistence)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<RoutineSession> findActiveByRoutineIdAndClientId(Long routineId, ClientId clientId) {
+        return routineSessionPersistenceRepository
+                .findFirstByRoutineIdAndClientIdAndStatus(routineId, clientId.clientId(), RoutineSessionStatus.STARTED.name())
+                .map(RoutineSessionPersistenceAssembler::toDomainFromPersistence);
     }
 
     @Override

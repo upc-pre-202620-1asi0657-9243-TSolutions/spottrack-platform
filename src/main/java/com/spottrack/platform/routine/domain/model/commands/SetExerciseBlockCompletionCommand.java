@@ -1,4 +1,6 @@
 package com.spottrack.platform.routine.domain.model.commands;
 
-public record SetExerciseBlockCompletionCommand(Long sessionId, Long exerciseBlockId, boolean completed) {
+import com.spottrack.platform.routine.domain.model.valueobjects.ClientId;
+
+public record SetExerciseBlockCompletionCommand(Long sessionId, ClientId clientId, Long exerciseBlockId, boolean completed) {
 }

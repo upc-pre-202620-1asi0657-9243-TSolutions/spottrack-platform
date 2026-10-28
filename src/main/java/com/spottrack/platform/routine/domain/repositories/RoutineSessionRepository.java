@@ -9,5 +9,6 @@ import java.util.Optional;
 public interface RoutineSessionRepository {
     Optional<RoutineSession> findById(Long id);
     List<RoutineSession> findAllByClientId(ClientId clientId);
+    Optional<RoutineSession> findActiveByRoutineIdAndClientId(Long routineId, ClientId clientId);
     RoutineSession save(RoutineSession session);
 }
