@@ -87,7 +87,7 @@ public class Reservation extends AbstractDomainAggregateRoot<Reservation> {
                 : minOf(now.toLocalTime().withSecond(0).withNano(0), LATEST_DERIVED_START);
         var end = command.endTime() != null
                 ? command.endTime().toLocalTime()
-                : minOf(start.plusMinutes(holdMinutes), LATEST_END);
+                : LocalTime.ofSecondOfDay(Math.min(start.toSecondOfDay() + holdMinutes * 60L, LATEST_END.toSecondOfDay()));
         return new TimeInterval(Time.valueOf(start), Time.valueOf(end));
     }
 
