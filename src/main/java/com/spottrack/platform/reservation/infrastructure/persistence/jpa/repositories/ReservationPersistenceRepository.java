@@ -17,5 +17,6 @@ public interface ReservationPersistenceRepository extends JpaRepository<Reservat
     boolean existsByEquipmentIdAndStatus(String equipmentId, ReservationStatus status);
     Optional<ReservationPersistenceEntity> findByEquipmentIdAndStatus(String equipmentId, ReservationStatus status);
     List<ReservationPersistenceEntity> findAllByStatusAndTimerExpiryIsNotNullAndTimerExpiryBefore(ReservationStatus status, LocalDateTime now);
-    List<ReservationPersistenceEntity> findAllByStatusAndTimerExpiryIsNullAndStartedAtBefore(ReservationStatus status, LocalDateTime cutoff);
+    List<ReservationPersistenceEntity> findAllByStatusAndTimerExpiryIsNullAndHoldExpiresAtIsNullAndStartedAtBefore(ReservationStatus status, LocalDateTime cutoff);
+    List<ReservationPersistenceEntity> findAllByStatusAndTimerExpiryIsNullAndHoldExpiresAtIsNotNullAndHoldExpiresAtBefore(ReservationStatus status, LocalDateTime now);
 }

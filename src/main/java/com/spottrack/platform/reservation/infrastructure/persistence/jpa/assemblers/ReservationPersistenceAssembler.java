@@ -2,7 +2,7 @@ package com.spottrack.platform.reservation.infrastructure.persistence.jpa.assemb
 
 
 import com.spottrack.platform.reservation.domain.model.aggregates.Reservation;
-import com.spottrack.platform.reservation.domain.model.valueobjects.TimeInterval;
+import com.spottrack.platform.reservation.domain.model.valueobjects.ReservationStatus;
 import com.spottrack.platform.reservation.infrastructure.persistence.jpa.entities.ReservationPersistenceEntity;
 
 
@@ -15,6 +15,7 @@ public class ReservationPersistenceAssembler {
                 entity.getStatus().toString(),
                 entity.getStartedAt(),
                 entity.getTimerExpiry(),
+                entity.getHoldExpiresAt(),
                 entity.getStartTime(),
                 entity.getEndTime()
         );
@@ -33,6 +34,10 @@ public class ReservationPersistenceAssembler {
         persistence.setStartTime(entity.getTimeInterval().startTime());
         persistence.setEndTime(entity.getTimeInterval().endTime());
         persistence.setTimerExpiry(entity.getTimerExpiry());
+        persistence.setHoldExpiresAt(entity.getHoldExpiresAt());
+        var active = entity.getStatus() == ReservationStatus.ACTIVE;
+        persistence.setActiveEquipmentKey(active ? entity.getEquipmentId().uuid() : null);
+        persistence.setActiveClientKey(active && entity.getHoldExpiresAt() != null ? entity.getClientId().clientId() : null);
         return persistence;
     }
 }

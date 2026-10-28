@@ -1,10 +1,13 @@
 package com.spottrack.platform.reservation.infrastructure.scheduling.configuration;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+
+import java.time.Clock;
 
 /**
  * Provides the TaskScheduler used by ReservationTimerStartedEventHandler to fire
@@ -21,5 +24,11 @@ public class ReservationSchedulerConfiguration {
         scheduler.setPoolSize(5);
         scheduler.setThreadNamePrefix("reservation-timer-");
         return scheduler;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(Clock.class)
+    public Clock clock() {
+        return Clock.systemDefaultZone();
     }
 }

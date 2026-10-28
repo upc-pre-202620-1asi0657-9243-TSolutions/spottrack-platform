@@ -5,6 +5,7 @@ import com.spottrack.platform.reservation.domain.model.commands.InitiateExpressR
 import com.spottrack.platform.reservation.domain.model.events.ExpressReservationInitiatedEvent;
 import com.spottrack.platform.reservation.domain.model.events.ReservationCancelledEvent;
 import com.spottrack.platform.reservation.domain.model.events.ReservationEndedEvent;
+import com.spottrack.platform.reservation.domain.model.events.ReservationExpiredEvent;
 import com.spottrack.platform.reservation.domain.model.events.ReservationTimerStartedEvent;
 import com.spottrack.platform.reservation.domain.model.valueobjects.*;
 import com.spottrack.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
@@ -14,6 +15,7 @@ import lombok.Setter;
 
 import java.sql.Time;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.UUID;
 
 /**
@@ -42,6 +44,10 @@ public class Reservation extends AbstractDomainAggregateRoot<Reservation> {
     // Set when StartReservationTimer is handled — null until the timer begins
     private LocalDateTime timerExpiry;
 
+    // Express holds only: instant after which an un-checked-in reservation expires.
+    // Null for reservations created from a ReservationRequest.
+    private LocalDateTime holdExpiresAt;
+
     private TimeInterval timeInterval;
 
     // Not persisted — only meaningful during the initial save() that follows
@@ -50,20 +56,43 @@ public class Reservation extends AbstractDomainAggregateRoot<Reservation> {
     // onInitiated() is only ever invoked on the isNew branch of save().
     private boolean expressInitiated;
 
+    private static final LocalTime LATEST_DERIVED_START = LocalTime.of(23, 58);
+    private static final LocalTime LATEST_END = LocalTime.of(23, 59);
+
     protected Reservation() {}
 
     /**
-     * Express reservation: client skips the request flow and reserves equipment directly.
-     * Starts in ACTIVE status with the timer not yet running.
+     * Express reservation: client skips the request flow and holds equipment directly
+     * for holdMinutes. Starts in ACTIVE status with the timer not yet running.
+     * The usage window (startTime/endTime) is kept as sent; any missing bound is derived
+     * and has no influence on the hold.
      */
-    public Reservation(InitiateExpressReservation command) {
+    public Reservation(InitiateExpressReservation command, LocalDateTime now, int holdMinutes) {
+        if (holdMinutes <= 0) {
+            throw new IllegalArgumentException("holdMinutes must be positive");
+        }
         this.id = new ReservationId(UUID.randomUUID().toString());
         this.clientId = command.clientId();
         this.equipmentId = command.equipmentId();
         this.status = ReservationStatus.ACTIVE;
-        this.startedAt = LocalDateTime.now();
-        this.timeInterval = command.timeInterval();
+        this.startedAt = now;
+        this.holdExpiresAt = now.plusMinutes(holdMinutes);
+        this.timeInterval = resolveTimeInterval(command, now, holdMinutes);
         this.expressInitiated = true;
+    }
+
+    private static TimeInterval resolveTimeInterval(InitiateExpressReservation command, LocalDateTime now, int holdMinutes) {
+        var start = command.startTime() != null
+                ? command.startTime().toLocalTime()
+                : minOf(now.toLocalTime().withSecond(0).withNano(0), LATEST_DERIVED_START);
+        var end = command.endTime() != null
+                ? command.endTime().toLocalTime()
+                : LocalTime.ofSecondOfDay(Math.min(start.toSecondOfDay() + holdMinutes * 60L, LATEST_END.toSecondOfDay()));
+        return new TimeInterval(Time.valueOf(start), Time.valueOf(end));
+    }
+
+    private static LocalTime minOf(LocalTime a, LocalTime b) {
+        return a.isBefore(b) ? a : b;
     }
 
     /**
@@ -96,25 +125,53 @@ public class Reservation extends AbstractDomainAggregateRoot<Reservation> {
     }
 
 
-    public Reservation(String id, Long clientId, String equipmentId, String status, LocalDateTime startedAt, LocalDateTime timerExpiry, Time startTime, Time endTime){
+    public Reservation(String id, Long clientId, String equipmentId, String status, LocalDateTime startedAt, LocalDateTime timerExpiry, LocalDateTime holdExpiresAt, Time startTime, Time endTime){
         this.id = new ReservationId(id);  // String → ReservationId value object
         this.clientId = new ClientId(clientId);
         this.equipmentId = new EquipmentId(equipmentId);
         this.status = ReservationStatus.valueOf(status);  // String → Enum
         this.timerExpiry = timerExpiry;
+        this.holdExpiresAt = holdExpiresAt;
         this.startedAt = startedAt;
         this.timeInterval = new TimeInterval(startTime, endTime); // construct the whole object
     }
     /**
-     *  Sets the timer expiry. Only makes sense when the reservation is ACTIVE.
+     * True while this is an express hold the client has not checked in to and whose
+     * hold window has elapsed at the given instant.
+     */
+    public boolean isHoldExpiredAt(LocalDateTime now) {
+        return this.status == ReservationStatus.ACTIVE
+                && this.timerExpiry == null
+                && this.holdExpiresAt != null
+                && !now.isBefore(this.holdExpiresAt);
+    }
+
+    /**
+     * Sets the timer expiry (check-in). Only makes sense while the reservation is ACTIVE
+     * and, for express holds, before the hold elapsed.
      * durationMinutes comes from the StartReservationTimer command.
      */
-    public void startTimer(int durationMinutes) {
+    public void startTimer(int durationMinutes, LocalDateTime now) {
         if (this.status != ReservationStatus.ACTIVE) {
             throw new IllegalStateException("reservation.error.timerOnlyForActive");
         }
-        this.timerExpiry = LocalDateTime.now().plusMinutes(durationMinutes);
+        if (isHoldExpiredAt(now)) {
+            throw new IllegalStateException("reservation.error.holdExpired");
+        }
+        this.timerExpiry = now.plusMinutes(durationMinutes);
         registerDomainEvent(new ReservationTimerStartedEvent(this.id.uuid(), this.equipmentId.uuid(), this.timerExpiry));
+    }
+
+    /**
+     * The hold elapsed without a check-in: the reservation expires and the equipment
+     * should be released.
+     */
+    public void expire(LocalDateTime now) {
+        if (!isHoldExpiredAt(now)) {
+            throw new IllegalStateException("reservation.error.expireOnlyForElapsedHold");
+        }
+        this.status = ReservationStatus.EXPIRED;
+        registerDomainEvent(new ReservationExpiredEvent(this.id.uuid(), this.equipmentId.uuid(), this.clientId.clientId()));
     }
 
     /**

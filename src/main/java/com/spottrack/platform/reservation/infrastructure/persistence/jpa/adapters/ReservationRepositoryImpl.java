@@ -49,6 +49,12 @@ public class ReservationRepositoryImpl implements ReservationRepository {
     }
 
     @Override
+    public Optional<Reservation> findByEquipmentIdAndStatus(String equipmentId, ReservationStatus status) {
+        return reservationPersistenceRepository.findByEquipmentIdAndStatus(equipmentId, status)
+                .map(ReservationPersistenceAssembler::toDomainFromPersistence);
+    }
+
+    @Override
     public boolean existsByClientIdAndStatus(Long clientId, ReservationStatus status) {
         return reservationPersistenceRepository.existsByClientIdAndStatus(clientId, status) ? true : false;
     }

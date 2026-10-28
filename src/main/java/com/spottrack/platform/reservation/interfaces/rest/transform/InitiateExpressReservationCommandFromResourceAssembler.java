@@ -3,10 +3,10 @@ package com.spottrack.platform.reservation.interfaces.rest.transform;
 import com.spottrack.platform.reservation.domain.model.commands.InitiateExpressReservation;
 import com.spottrack.platform.reservation.domain.model.valueobjects.ClientId;
 import com.spottrack.platform.reservation.domain.model.valueobjects.EquipmentId;
-import com.spottrack.platform.reservation.domain.model.valueobjects.TimeInterval;
 import com.spottrack.platform.reservation.interfaces.rest.resources.InitiateExpressReservationResource;
 
 import java.sql.Time;
+import java.time.LocalTime;
 
 public class InitiateExpressReservationCommandFromResourceAssembler {
 
@@ -14,6 +14,14 @@ public class InitiateExpressReservationCommandFromResourceAssembler {
         return new InitiateExpressReservation(
                 new ClientId(clientId),
                 new EquipmentId(resource.equipmentId()),
-                new TimeInterval(Time.valueOf(resource.startTime()), Time.valueOf(resource.endTime())));
+                parseTime(resource.startTime()),
+                parseTime(resource.endTime()));
+    }
+
+    private static Time parseTime(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return Time.valueOf(LocalTime.parse(value.trim()));
     }
 }
