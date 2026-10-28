@@ -5,7 +5,7 @@ import com.spottrack.platform.maintenance.interfaces.rest.resources.CreateTechni
 
 public class CreateTechnicianCommandFromResourceAssembler {
 
-    public static CreateTechnician toCommandFromResource(CreateTechnicianResource resource) {
-        return new CreateTechnician(resource.name());
+    public static CreateTechnician toCommandFromResource(CreateTechnicianResource resource, Long adminUserId) {
+        return new CreateTechnician(resource.name(), null, adminUserId);
     }
 }

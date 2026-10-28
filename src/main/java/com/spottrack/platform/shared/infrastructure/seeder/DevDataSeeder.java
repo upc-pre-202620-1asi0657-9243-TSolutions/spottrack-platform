@@ -31,6 +31,7 @@ import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.Eq
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.GymPersistenceRepository;
 import com.spottrack.platform.iam.application.commandservices.RoleCommandService;
 import com.spottrack.platform.iam.application.commandservices.UserCommandService;
+import com.spottrack.platform.iam.domain.model.commands.RegisterTechnicianCommand;
 import com.spottrack.platform.iam.domain.model.commands.SeedRolesCommand;
 import com.spottrack.platform.iam.domain.model.commands.SignUpCommand;
 import com.spottrack.platform.iam.domain.model.entities.Role;
@@ -106,6 +107,7 @@ public class DevDataSeeder {
 
     private static final String ADMIN_EMAIL = "seedadmin@spottrack.com";
     private static final String CLIENT_EMAIL = "seedclient@spottrack.com";
+    private static final String TECHNICIAN_EMAIL = "seedtechnician@spottrack.com";
     private static final String SEED_PASSWORD = "seed123";
     private static final String SEED_DNI = "87654321";
     private static final String ADMIN_DNI = "12345678";
@@ -232,6 +234,7 @@ public class DevDataSeeder {
         seedMotionSensor(gymSeed.equipmentId());
         seedRoiProjection();
         var technicianId = seedTechnician();
+        seedTechnicianAccount(adminUserId);
         seedMaintenanceLog(gymSeed.equipmentId(), technicianId);
         seedMaintenanceThreshold(gymSeed.equipmentId());
         seedMonthOfUsage(gymSeed.equipmentId());
@@ -429,6 +432,20 @@ public class DevDataSeeder {
         var technicianId = ((Result.Success<com.spottrack.platform.maintenance.domain.model.aggregates.Technician, ?>) result).value().getTechnicianId().uuid();
         log.info("[DevDataSeeder] Technician created, technicianId={}", technicianId);
         return technicianId;
+    }
+
+    private void seedTechnicianAccount(Long adminUserId) {
+        if (userRepository.existsByUsername(TECHNICIAN_EMAIL)) {
+            log.info("[DevDataSeeder] Technician account already exists, skipping creation.");
+            return;
+        }
+        var result = userCommandService.handle(new RegisterTechnicianCommand(
+                TECHNICIAN_EMAIL, SEED_PASSWORD, "Tecnico", "Seed", adminUserId));
+        if (result instanceof Result.Failure<?, ?> f) {
+            log.error("[DevDataSeeder] Failed to create technician account: {}", f.error());
+            throw new IllegalStateException("Dev seed failed at technician account creation");
+        }
+        log.info("[DevDataSeeder] Technician account created, email={}", TECHNICIAN_EMAIL);
     }
 
     private Long seedAdminUser() {

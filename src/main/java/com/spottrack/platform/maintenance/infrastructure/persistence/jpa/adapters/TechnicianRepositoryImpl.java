@@ -42,6 +42,19 @@ public class TechnicianRepositoryImpl implements TechnicianRepository {
     }
 
     @Override
+    public Optional<Technician> findByUserId(Long userId) {
+        return jpaRepository.findByUserId(userId)
+                .map(TechnicianPersistenceAssembler::toDomainFromPersistence);
+    }
+
+    @Override
+    public List<Technician> findByAdminUserIdOrLegacy(Long adminUserId) {
+        return jpaRepository.findByAdminUserIdOrAdminUserIdIsNull(adminUserId).stream()
+                .map(TechnicianPersistenceAssembler::toDomainFromPersistence)
+                .toList();
+    }
+
+    @Override
     public Technician save(Technician technician) {
         var entity = TechnicianPersistenceAssembler.toPersistenceFromDomain(technician);
         jpaRepository.findByTechnicianId(technician.getTechnicianId().uuid())

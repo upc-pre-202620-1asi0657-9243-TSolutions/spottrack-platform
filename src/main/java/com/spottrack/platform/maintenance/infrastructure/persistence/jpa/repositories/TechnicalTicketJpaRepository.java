@@ -10,4 +10,5 @@ public interface TechnicalTicketJpaRepository extends JpaRepository<TechnicalTic
     Optional<TechnicalTicketPersistenceEntity> findByTicketId(String ticketId);
     List<TechnicalTicketPersistenceEntity> findByEquipmentId(String equipmentId);
     Optional<TechnicalTicketPersistenceEntity> findByMaintenanceId(String maintenanceId);
+    List<TechnicalTicketPersistenceEntity> findByTechnicianId(String technicianId);
 }

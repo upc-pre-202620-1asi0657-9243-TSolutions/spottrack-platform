@@ -19,7 +19,9 @@ import com.spottrack.platform.maintenance.domain.model.commands.RegisterMaintena
 import com.spottrack.platform.maintenance.domain.model.commands.RequestUpdateMaintenanceStatus;
 import com.spottrack.platform.maintenance.domain.model.commands.UpdateMaintenanceStatus;
 import com.spottrack.platform.maintenance.domain.model.commands.UpdateTechnicalTicket;
-import com.spottrack.platform.maintenance.domain.model.queries.GetAllTechniciansQuery;
+import com.spottrack.platform.maintenance.domain.model.queries.GetTechnicianByTechnicianIdQuery;
+import com.spottrack.platform.maintenance.domain.model.queries.GetTechnicianByUserIdQuery;
+import com.spottrack.platform.maintenance.domain.model.queries.GetTechniciansByAdminQuery;
 import com.spottrack.platform.maintenance.domain.model.queries.GetMaintenanceLogsByTicketIdQuery;
 import com.spottrack.platform.maintenance.domain.model.valueobjects.MaintenanceId;
 import com.spottrack.platform.maintenance.domain.model.valueobjects.MaintenanceJobId;
@@ -163,6 +165,8 @@ public class MaintenanceController {
         }
         var ownershipError = checkTicketOwnership(ticketId, adminUserId);
         if (ownershipError.isPresent()) return ownershipError.get();
+        var technicianError = checkTechnicianTenant(technicianId, adminUserId);
+        if (technicianError.isPresent()) return technicianError.get();
         var command = new AssignTechnicalTicket(new TechnicalTicketId(ticketId), technicianId);
         var result = commandService.handle(command);
         return switch (result) {
@@ -185,6 +189,8 @@ public class MaintenanceController {
         }
         var ownershipError = checkTicketOwnership(ticketId, adminUserId);
         if (ownershipError.isPresent()) return ownershipError.get();
+        var technicianError = checkTechnicianTenant(resource.technicianId(), adminUserId);
+        if (technicianError.isPresent()) return technicianError.get();
         UpdateTechnicalTicket command;
         try {
             command = new UpdateTechnicalTicket(new TechnicalTicketId(ticketId), resource.description(),
@@ -214,6 +220,8 @@ public class MaintenanceController {
         }
         var ownershipError = checkJobOwnership(jobId, adminUserId);
         if (ownershipError.isPresent()) return ownershipError.get();
+        var technicianError = checkTechnicianTenant(technicianId, adminUserId);
+        if (technicianError.isPresent()) return technicianError.get();
         var command = new AcceptMaintenance(new MaintenanceJobId(jobId), technicianId);
         var result = commandService.handle(command);
         return switch (result) {
@@ -226,8 +234,14 @@ public class MaintenanceController {
 
     @PostMapping("/technicians")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> createTechnician(@RequestBody CreateTechnicianResource resource) {
-        var command = CreateTechnicianCommandFromResourceAssembler.toCommandFromResource(resource);
+    public ResponseEntity<?> createTechnician(Authentication authentication,
+                                              @RequestBody CreateTechnicianResource resource) {
+        var adminUserId = resolveAdminUserId(authentication);
+        if (adminUserId == 0L) {
+            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.notFound("Admin", authentication.getName()));
+        }
+        var command = CreateTechnicianCommandFromResourceAssembler.toCommandFromResource(resource, adminUserId);
         var result = commandService.handle(command);
         return switch (result) {
             case Result.Success<Technician, ApplicationError> s ->
@@ -240,24 +254,40 @@ public class MaintenanceController {
 
     @GetMapping("/technicians")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> getAllTechnicians() {
-        var technicians = technicianQueryService.handle(new GetAllTechniciansQuery());
+    public ResponseEntity<?> getAllTechnicians(Authentication authentication) {
+        var adminUserId = resolveAdminUserId(authentication);
+        if (adminUserId == 0L) {
+            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.notFound("Admin", authentication.getName()));
+        }
+        var technicians = technicianQueryService.handle(new GetTechniciansByAdminQuery(adminUserId));
         var resources = technicians.stream()
                 .map(TechnicianResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(resources);
     }
 
+    @GetMapping("/tickets/assigned-to-me")
+    @PreAuthorize("hasRole('TECHNICIAN')")
+    public ResponseEntity<?> getTicketsAssignedToMe(Authentication authentication) {
+        var technician = resolveTechnician(authentication);
+        if (technician.isEmpty()) {
+            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.notFound("Technician", authentication.getName()));
+        }
+        var resources = technicalTicketJpaRepository
+                .findByTechnicianId(technician.get().getTechnicianId().uuid()).stream()
+                .map(TechnicalTicketPersistenceAssembler::toDomainFromPersistence)
+                .map(TechnicalTicketResourceFromEntityAssembler::toResourceFromEntity)
+                .toList();
+        return ResponseEntity.ok(resources);
+    }
+
     @PatchMapping("/tickets/{ticketId}/complete")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICIAN')")
     public ResponseEntity<?> completeMaintenance(Authentication authentication,
                                                  @PathVariable String ticketId) {
-        var adminUserId = resolveAdminUserId(authentication);
-        if (adminUserId == 0L) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("Admin", authentication.getName()));
-        }
-        var ownershipError = checkTicketOwnership(ticketId, adminUserId);
+        var ownershipError = checkTicketAccess(ticketId, authentication);
         if (ownershipError.isPresent()) return ownershipError.get();
         var command = new CompleteMaintenance(new TechnicalTicketId(ticketId));
         var result = commandService.handle(command);
@@ -270,16 +300,11 @@ public class MaintenanceController {
     }
 
     @PatchMapping("/tickets/{ticketId}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICIAN')")
     public ResponseEntity<?> modifyTicketStatus(Authentication authentication,
                                                 @PathVariable String ticketId,
                                                 @RequestBody ModifyTicketStatusResource resource) {
-        var adminUserId = resolveAdminUserId(authentication);
-        if (adminUserId == 0L) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("Admin", authentication.getName()));
-        }
-        var ownershipError = checkTicketOwnership(ticketId, adminUserId);
+        var ownershipError = checkTicketAccess(ticketId, authentication);
         if (ownershipError.isPresent()) return ownershipError.get();
         var command = new com.spottrack.platform.maintenance.domain.model.commands.ModifyTicketStatus(
                 new TechnicalTicketId(ticketId), resource.newStatus());
@@ -293,16 +318,11 @@ public class MaintenanceController {
     }
 
     @PostMapping("/tickets/{ticketId}/completion-log")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICIAN')")
     public ResponseEntity<?> registerMaintenanceCompletion(Authentication authentication,
                                                            @PathVariable String ticketId,
                                                            @RequestBody RegisterMaintenanceCompletionResource resource) {
-        var adminUserId = resolveAdminUserId(authentication);
-        if (adminUserId == 0L) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("Admin", authentication.getName()));
-        }
-        var ownershipError = checkTicketOwnership(ticketId, adminUserId);
+        var ownershipError = checkTicketAccess(ticketId, authentication);
         if (ownershipError.isPresent()) return ownershipError.get();
         var command = new RegisterMaintenanceCompletion(
                 new TechnicalTicketId(ticketId),
@@ -320,15 +340,10 @@ public class MaintenanceController {
     }
 
     @GetMapping("/tickets/{ticketId}/completion-log")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','TECHNICIAN')")
     public ResponseEntity<?> getMaintenanceCompletionLog(Authentication authentication,
                                                          @PathVariable String ticketId) {
-        var adminUserId = resolveAdminUserId(authentication);
-        if (adminUserId == 0L) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("Admin", authentication.getName()));
-        }
-        var ownershipError = checkTicketOwnership(ticketId, adminUserId);
+        var ownershipError = checkTicketAccess(ticketId, authentication);
         if (ownershipError.isPresent()) return ownershipError.get();
         var resources = maintenanceLogQueryService.handle(new GetMaintenanceLogsByTicketIdQuery(ticketId)).stream()
                 .map(MaintenanceLogResourceFromEntityAssembler::toResourceFromEntity)
@@ -417,6 +432,44 @@ public class MaintenanceController {
             case Result.Failure<String, ApplicationError> f ->
                     ResponseEntity.badRequest().body(f.error());
         };
+    }
+
+    private Optional<Technician> resolveTechnician(Authentication authentication) {
+        return iamContextFacade.fetchUserIdByUsername(authentication.getName())
+                .flatMap(userId -> technicianQueryService.handle(new GetTechnicianByUserIdQuery(userId)));
+    }
+
+    private Optional<ResponseEntity<?>> checkTicketAccess(String ticketId, Authentication authentication) {
+        var isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        if (isAdmin) {
+            var adminUserId = resolveAdminUserId(authentication);
+            if (adminUserId == 0L) {
+                return Optional.of(ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                        ApplicationError.notFound("Admin", authentication.getName())));
+            }
+            return checkTicketOwnership(ticketId, adminUserId);
+        }
+        var ticket = technicalTicketJpaRepository.findByTicketId(ticketId);
+        if (ticket.isEmpty()) return Optional.of(ResponseEntity.notFound().build());
+        var technician = resolveTechnician(authentication);
+        if (technician.isEmpty()
+                || !technician.get().getTechnicianId().uuid().equals(ticket.get().getTechnicianId())) {
+            return Optional.of(ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.forbidden("Maintenance", "ticketId:" + ticketId)));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<ResponseEntity<?>> checkTechnicianTenant(String technicianId, Long adminUserId) {
+        if (technicianId == null || technicianId.isBlank()) return Optional.empty();
+        var technician = technicianQueryService.handle(new GetTechnicianByTechnicianIdQuery(technicianId));
+        if (technician.isPresent() && technician.get().getAdminUserId() != null
+                && !technician.get().getAdminUserId().equals(adminUserId)) {
+            return Optional.of(ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.forbidden("Maintenance", "technicianId:" + technicianId)));
+        }
+        return Optional.empty();
     }
 
     private Long resolveAdminUserId(Authentication authentication) {

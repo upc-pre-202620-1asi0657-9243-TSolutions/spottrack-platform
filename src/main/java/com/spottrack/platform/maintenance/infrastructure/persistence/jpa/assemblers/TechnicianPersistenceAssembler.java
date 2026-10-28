@@ -6,13 +6,16 @@ import com.spottrack.platform.maintenance.infrastructure.persistence.jpa.entitie
 public class TechnicianPersistenceAssembler {
 
     public static Technician toDomainFromPersistence(TechnicianPersistenceEntity entity) {
-        return new Technician(entity.getTechnicianId(), entity.getName());
+        return new Technician(entity.getTechnicianId(), entity.getName(),
+                entity.getUserId(), entity.getAdminUserId());
     }
 
     public static TechnicianPersistenceEntity toPersistenceFromDomain(Technician technician) {
         var entity = new TechnicianPersistenceEntity();
         entity.setTechnicianId(technician.getTechnicianId().uuid());
         entity.setName(technician.getName());
+        entity.setUserId(technician.getUserId());
+        entity.setAdminUserId(technician.getAdminUserId());
         return entity;
     }
 }

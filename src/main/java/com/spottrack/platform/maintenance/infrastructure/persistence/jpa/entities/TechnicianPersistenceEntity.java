@@ -20,4 +20,10 @@ public class TechnicianPersistenceEntity extends AuditableAbstractPersistenceEnt
 
     @Column(nullable = false)
     private String name;
+
+    @Column
+    private Long userId;
+
+    @Column
+    private Long adminUserId;
 }
