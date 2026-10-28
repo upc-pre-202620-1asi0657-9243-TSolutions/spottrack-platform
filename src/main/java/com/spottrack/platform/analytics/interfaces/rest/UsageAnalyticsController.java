@@ -25,7 +25,7 @@ import java.time.temporal.ChronoUnit;
 /**
  * Occupancy and heat built from real sensor sessions. Dates are inclusive and
  * default to the last 7 days. Readable by the admin who owns the gym and by
- * clients with an active association to it (the client map shows the heat).
+ * clients associated with it, whether or not it is their active gym (the client map shows the heat).
  */
 @RestController
 @RequestMapping(value = "/api/v1/usage-analytics", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -90,7 +90,7 @@ public class UsageAnalyticsController {
             return gymContextFacade.isGymOwnedByAdmin(gymId, adminUserId);
         }
         var clientId = profilesContextFacade.fetchClientIdByEmail(username);
-        return clientId != null && clientId > 0 && profilesContextFacade.hasActiveAssociationWithGym(clientId, gymId);
+        return clientId != null && clientId > 0 && profilesContextFacade.hasAssociationWithGym(clientId, gymId);
     }
 
     private static boolean hasRole(Authentication authentication, String role) {

@@ -148,4 +148,14 @@ public class ProfilesContextFacadeImpl implements ProfilesContextFacade {
                 .filter(a -> gymId.equals(a.getGymId()))
                 .isPresent();
     }
+
+    @Override
+    public boolean hasAssociationWithGym(Long clientId, String gymId) {
+        if (!associationRepository.existsByClientIdAndGymId(clientId, gymId)) return false;
+        var clientOpt = clientQueryService.handle(
+                new com.spottrack.platform.profiles.domain.model.queries.GetClientByIdQuery(new ClientId(clientId)));
+        if (clientOpt.isEmpty() || !clientOpt.get().isProfileComplete()) return false;
+        var dni = clientOpt.get().getPersonInfo().dni().getDNI();
+        return gymContextFacade.isDniWhitelistedForGym(gymId, dni);
+    }
 }

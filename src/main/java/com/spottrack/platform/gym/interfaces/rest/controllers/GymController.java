@@ -304,7 +304,7 @@ public class GymController {
             return Optional.of(ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Client", username)));
         }
-        if (!profilesContextFacade.hasActiveAssociationWithGym(clientId, gymId)) {
+        if (!profilesContextFacade.hasAssociationWithGym(clientId, gymId)) {
             return Optional.of(ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.forbidden("Gym", "gymId:" + gymId)));
         }
