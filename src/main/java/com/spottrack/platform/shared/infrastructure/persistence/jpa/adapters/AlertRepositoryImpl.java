@@ -26,8 +26,11 @@ public class AlertRepositoryImpl implements AlertRepository {
     }
 
     @Override
-    public List<Alert> findAllByAdminUserId(Long adminUserId) {
-        return alertPersistenceRepository.findAllByAdminUserIdAndResolvedFalse(adminUserId).stream()
+    public List<Alert> findAllNotClearedByAdminUserId(Long adminUserId, Boolean resolved) {
+        var entities = resolved == null
+                ? alertPersistenceRepository.findAllByAdminUserIdAndClearedAtIsNull(adminUserId)
+                : alertPersistenceRepository.findAllByAdminUserIdAndResolvedAndClearedAtIsNull(adminUserId, resolved);
+        return entities.stream()
                 .map(AlertPersistenceAssembler::toDomainFromPersistence)
                 .collect(Collectors.toList());
     }

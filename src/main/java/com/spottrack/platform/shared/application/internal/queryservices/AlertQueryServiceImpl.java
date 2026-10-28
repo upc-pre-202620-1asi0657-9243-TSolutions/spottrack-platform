@@ -19,6 +19,14 @@ public class AlertQueryServiceImpl implements AlertQueryService {
 
     @Override
     public List<Alert> handle(GetAlertsByAdminUserIdQuery query) {
-        return alertRepository.findAllByAdminUserId(query.adminUserId());
+        Boolean resolved = switch (query.status()) {
+            case PENDING -> false;
+            case RESOLVED -> true;
+            case ALL -> null;
+        };
+        return alertRepository.findAllNotClearedByAdminUserId(query.adminUserId(), resolved).stream()
+                .filter(alert -> query.source() == null || alert.getSource() == query.source())
+                .filter(alert -> query.severity() == null || alert.getSeverity() == query.severity())
+                .toList();
     }
 }

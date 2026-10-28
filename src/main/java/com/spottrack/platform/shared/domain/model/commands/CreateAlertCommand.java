@@ -1,8 +1,10 @@
 package com.spottrack.platform.shared.domain.model.commands;
 
 import com.spottrack.platform.shared.domain.model.valueobjects.AlertSeverity;
+import com.spottrack.platform.shared.domain.model.valueobjects.AlertSource;
 
-public record CreateAlertCommand(Long adminUserId, String equipmentId, AlertSeverity severity, String message) {
+public record CreateAlertCommand(Long adminUserId, String equipmentId, AlertSeverity severity, AlertSource source,
+                                 String message) {
     public CreateAlertCommand {
         if (adminUserId == null || adminUserId == 0L) {
             throw new IllegalArgumentException("Admin user id must not be null or zero");
@@ -12,6 +14,9 @@ public record CreateAlertCommand(Long adminUserId, String equipmentId, AlertSeve
         }
         if (severity == null) {
             throw new IllegalArgumentException("Severity must not be null");
+        }
+        if (source == null) {
+            throw new IllegalArgumentException("Source must not be null");
         }
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("Message cannot be blank");

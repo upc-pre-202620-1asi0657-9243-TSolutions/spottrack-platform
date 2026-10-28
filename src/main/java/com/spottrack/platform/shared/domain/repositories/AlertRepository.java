@@ -7,6 +7,9 @@ import java.util.Optional;
 
 public interface AlertRepository {
     Optional<Alert> findById(Long id);
-    List<Alert> findAllByAdminUserId(Long adminUserId);
+
+    /** Alerts of the admin that have not been cleared; {@code resolved} null returns both pending and resolved. */
+    List<Alert> findAllNotClearedByAdminUserId(Long adminUserId, Boolean resolved);
+
     Alert save(Alert alert);
 }

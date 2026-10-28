@@ -106,6 +106,7 @@ import com.spottrack.platform.shared.application.queryservices.AlertQueryService
 import com.spottrack.platform.shared.application.result.Result;
 import com.spottrack.platform.shared.domain.model.commands.ResolveAlertCommand;
 import com.spottrack.platform.shared.domain.model.queries.GetAlertsByAdminUserIdQuery;
+import com.spottrack.platform.shared.domain.model.valueobjects.AlertStatusFilter;
 import com.spottrack.platform.shared.domain.model.valueobjects.Money;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -677,7 +678,7 @@ public class MegaDataSeeder {
     }
 
     private void resolveSomeAlerts(SeededGym gym) {
-        for (var alert : alertQueryService.handle(new GetAlertsByAdminUserIdQuery(gym.adminUserId))) {
+        for (var alert : alertQueryService.handle(new GetAlertsByAdminUserIdQuery(gym.adminUserId, AlertStatusFilter.PENDING, null, null))) {
             if (!alert.isResolved() && random.nextDouble() < 0.4) {
                 soft("resolve alert", () -> alertCommandService.handle(new ResolveAlertCommand(alert.getId(), gym.adminUserId)));
                 count("resolvedAlerts");
