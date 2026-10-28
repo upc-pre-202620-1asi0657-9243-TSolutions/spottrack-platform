@@ -4,13 +4,16 @@ Feature: Branch switch to check occupancy
   I want to select other branches in the app
   So that I can check the layout and occupancy of alternate branches before leaving home
 
-  Scenario: Checking an alternate branch with a multi-branch membership
-    Given the client has a multi-branch membership
-    When the client selects another branch in the branch selector
-    Then the system returns the layout and heatmap of the selected branch
+  Scenario: Checking an alternate gym the client is associated with
+    Given the client is associated with the gyms "Spot Gym Miraflores" and "Spot Gym San Isidro"
+    And "Spot Gym Miraflores" is the client's active gym
+    And the client's DNI is still in the whitelist of "Spot Gym San Isidro"
+    When the client selects "Spot Gym San Isidro" in the branch selector
+    Then the system returns the branches, zones and equipment of "Spot Gym San Isidro"
+    And the system returns the usage heatmap of "Spot Gym San Isidro"
+    And "Spot Gym Miraflores" remains the client's active gym
 
-  Scenario: Branch outside the client's plan
-    Given the client has a single-branch plan
-    When the client selects a branch that is not included in their plan
-    Then the system blocks access to that branch
-    And the system suggests upgrading the membership
+  Scenario: Gym the client is not associated with
+    Given the client is associated only with "Spot Gym Miraflores"
+    When the client selects "Spot Gym San Isidro", which is not in their associations
+    Then the system blocks access to that gym with a 403 FORBIDDEN error
