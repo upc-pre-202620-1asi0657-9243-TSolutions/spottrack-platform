@@ -804,7 +804,7 @@ public class DevDataSeeder {
             return;
         }
         var session = ((Result.Success<com.spottrack.platform.routine.domain.model.aggregates.RoutineSession, ?>) sessionResult).value();
-        routineSessionCommandService.handle(new CompleteRoutineCommand(session.getId()));
+        routineSessionCommandService.handle(new CompleteRoutineCommand(session.getId(), routineClientId));
         log.info("[DevDataSeeder] Routine and completed session seeded for client {}.", clientId);
     }
 }

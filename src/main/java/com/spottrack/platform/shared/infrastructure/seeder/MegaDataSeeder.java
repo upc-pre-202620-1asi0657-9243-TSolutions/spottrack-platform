@@ -816,17 +816,17 @@ public class MegaDataSeeder {
                     // Left in progress, half the blocks ticked off.
                     for (int b = 0; b < blockIds.size() / 2; b++) {
                         var blockId = blockIds.get(b);
-                        soft("block completion", () -> routineSessionCommandService.handle(new SetExerciseBlockCompletionCommand(sessionId, blockId, true)));
+                        soft("block completion", () -> routineSessionCommandService.handle(new SetExerciseBlockCompletionCommand(sessionId, routineClientId, blockId, true)));
                     }
                     count("routineSessionsInProgress");
                 } else if (random.nextDouble() < 0.2) {
-                    soft("missed", () -> routineSessionCommandService.handle(new MarkRoutineMissedCommand(sessionId)));
+                    soft("missed", () -> routineSessionCommandService.handle(new MarkRoutineMissedCommand(sessionId, routineClientId)));
                     count("routineSessionsMissed");
                 } else {
                     for (var blockId : blockIds) {
-                        soft("block completion", () -> routineSessionCommandService.handle(new SetExerciseBlockCompletionCommand(sessionId, blockId, true)));
+                        soft("block completion", () -> routineSessionCommandService.handle(new SetExerciseBlockCompletionCommand(sessionId, routineClientId, blockId, true)));
                     }
-                    soft("complete routine", () -> routineSessionCommandService.handle(new CompleteRoutineCommand(sessionId)));
+                    soft("complete routine", () -> routineSessionCommandService.handle(new CompleteRoutineCommand(sessionId, routineClientId)));
                     count("routineSessionsCompleted");
                 }
             }

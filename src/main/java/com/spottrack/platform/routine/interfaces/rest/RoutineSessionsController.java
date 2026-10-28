@@ -157,14 +157,7 @@ public class RoutineSessionsController {
         }
         var membershipError = gymMembershipAccessGuard.check(clientId);
         if (membershipError.isPresent()) return membershipError.get();
-        var session = routineSessionQueryService.handle(new GetRoutineSessionByIdQuery(routineSessionId));
-        if (session.isEmpty()) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("RoutineSession", routineSessionId.toString()));
-        }
-        var ownershipError = checkOwnership(session.get().getClientId().clientId(), clientId, routineSessionId.toString());
-        if (ownershipError.isPresent()) return ownershipError.get();
-        var command = new CompleteRoutineCommand(routineSessionId);
+        var command = new CompleteRoutineCommand(routineSessionId, new ClientId(clientId));
         var result = routineSessionCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
@@ -192,14 +185,7 @@ public class RoutineSessionsController {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Client", authentication.getName()));
         }
-        var session = routineSessionQueryService.handle(new GetRoutineSessionByIdQuery(routineSessionId));
-        if (session.isEmpty()) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("RoutineSession", routineSessionId.toString()));
-        }
-        var ownershipError = checkOwnership(session.get().getClientId().clientId(), clientId, routineSessionId.toString());
-        if (ownershipError.isPresent()) return ownershipError.get();
-        var command = new MarkRoutineMissedCommand(routineSessionId);
+        var command = new MarkRoutineMissedCommand(routineSessionId, new ClientId(clientId));
         var result = routineSessionCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
@@ -232,14 +218,10 @@ public class RoutineSessionsController {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Client", authentication.getName()));
         }
-        var session = routineSessionQueryService.handle(new GetRoutineSessionByIdQuery(routineSessionId));
-        if (session.isEmpty()) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
-                    ApplicationError.notFound("RoutineSession", routineSessionId.toString()));
-        }
-        var ownershipError = checkOwnership(session.get().getClientId().clientId(), clientId, routineSessionId.toString());
-        if (ownershipError.isPresent()) return ownershipError.get();
-        var command = new SetExerciseBlockCompletionCommand(routineSessionId, exerciseBlockId, resource.completed());
+        var membershipError = gymMembershipAccessGuard.check(clientId);
+        if (membershipError.isPresent()) return membershipError.get();
+        var command = new SetExerciseBlockCompletionCommand(
+                routineSessionId, new ClientId(clientId), exerciseBlockId, resource.completed());
         var result = routineSessionCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,

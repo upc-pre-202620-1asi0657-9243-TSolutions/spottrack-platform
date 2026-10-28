@@ -1,3 +1,5 @@
 package com.spottrack.platform.routine.domain.model.commands;
 
-public record CompleteRoutineCommand(Long routineSessionId) {}
+import com.spottrack.platform.routine.domain.model.valueobjects.ClientId;
+
+public record CompleteRoutineCommand(Long routineSessionId, ClientId clientId) {}

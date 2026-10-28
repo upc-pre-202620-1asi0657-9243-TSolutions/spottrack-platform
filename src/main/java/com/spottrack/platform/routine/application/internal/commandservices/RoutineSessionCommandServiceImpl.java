@@ -34,6 +34,9 @@ public class RoutineSessionCommandServiceImpl implements RoutineSessionCommandSe
             if (!routineOpt.get().getClientId().equals(command.clientId())) {
                 return Result.failure(ApplicationError.forbidden("Routine", "routineId:" + command.routineId()));
             }
+            if (routineSessionRepository.findActiveByRoutineIdAndClientId(command.routineId(), command.clientId()).isPresent()) {
+                return Result.failure(ApplicationError.conflict("RoutineSession", "routine.error.session.alreadyStarted"));
+            }
             var session = new RoutineSession(command);
             var savedSession = routineSessionRepository.save(session);
             return Result.success(savedSession);
@@ -50,6 +53,9 @@ public class RoutineSessionCommandServiceImpl implements RoutineSessionCommandSe
             var session = routineSessionRepository.findById(command.routineSessionId());
             if (session.isEmpty()) {
                 return Result.failure(ApplicationError.notFound("RoutineSession", command.routineSessionId().toString()));
+            }
+            if (!session.get().getClientId().equals(command.clientId())) {
+                return Result.failure(forbiddenSession(command.routineSessionId()));
             }
             session.get().complete();
             var savedSession = routineSessionRepository.save(session.get());
@@ -69,6 +75,9 @@ public class RoutineSessionCommandServiceImpl implements RoutineSessionCommandSe
             var session = routineSessionRepository.findById(command.routineSessionId());
             if (session.isEmpty()) {
                 return Result.failure(ApplicationError.notFound("RoutineSession", command.routineSessionId().toString()));
+            }
+            if (!session.get().getClientId().equals(command.clientId())) {
+                return Result.failure(forbiddenSession(command.routineSessionId()));
             }
             session.get().markMissed();
             var savedSession = routineSessionRepository.save(session.get());
@@ -90,6 +99,9 @@ public class RoutineSessionCommandServiceImpl implements RoutineSessionCommandSe
                 return Result.failure(ApplicationError.notFound("RoutineSession", command.sessionId().toString()));
             }
             var session = sessionOpt.get();
+            if (!session.getClientId().equals(command.clientId())) {
+                return Result.failure(forbiddenSession(command.sessionId()));
+            }
             var routineOpt = routineRepository.findById(session.getRoutineId());
             if (routineOpt.isEmpty()) {
                 return Result.failure(ApplicationError.notFound("Routine", session.getRoutineId().toString()));
@@ -110,5 +122,9 @@ public class RoutineSessionCommandServiceImpl implements RoutineSessionCommandSe
         } catch (Exception e) {
             return Result.failure(ApplicationError.unexpected("Exercise completion update", e.getMessage()));
         }
+    }
+
+    private static ApplicationError forbiddenSession(Long sessionId) {
+        return ApplicationError.forbidden("RoutineSession", "sessionId:" + sessionId);
     }
 }

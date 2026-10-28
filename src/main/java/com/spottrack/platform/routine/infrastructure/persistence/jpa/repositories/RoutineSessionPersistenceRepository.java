@@ -7,10 +7,14 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface RoutineSessionPersistenceRepository extends JpaRepository<RoutineSessionPersistenceEntity, Long> {
 
     @Query("select rs from RoutineSessionPersistenceEntity rs where rs.clientId = :clientId")
     List<RoutineSessionPersistenceEntity> findAllByClientId(@Param("clientId") Long clientId);
+
+    Optional<RoutineSessionPersistenceEntity> findFirstByRoutineIdAndClientIdAndStatus(
+            Long routineId, Long clientId, String status);
 }
