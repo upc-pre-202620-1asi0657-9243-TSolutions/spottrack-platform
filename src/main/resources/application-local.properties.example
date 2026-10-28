@@ -16,10 +16,3 @@ stripe.webhook-secret=whsec_<TU_WEBHOOK_SECRET_LOCAL>
 
 # Útil para ver queries en consola durante la prueba local.
 spring.jpa.show-sql=true
-
-# MySQL 9 trata 'sets' como palabra reservada y falla el DDL de exercise_blocks.
-# Hibernate 7.2 no propaga el quoting por @Column(name="`sets`") a través de
-# SpringPhysicalNamingStrategy, por lo que hay que forzarlo globalmente aquí.
-# En Azure (MySQL 8) 'sets' no es reservada — esta propiedad solo aplica local.
-# Descomentar si usás MySQL 9+:
-# spring.jpa.properties.hibernate.globally_quoted_identifiers=true
