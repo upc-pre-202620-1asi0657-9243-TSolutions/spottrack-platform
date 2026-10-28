@@ -7,11 +7,12 @@ import com.spottrack.platform.monitoring.domain.model.queries.GetSessionTrackerB
 import com.spottrack.platform.monitoring.domain.model.valueobjects.ReservationId;
 import com.spottrack.platform.reservation.interfaces.events.ReservationCancelledIntegrationEvent;
 import com.spottrack.platform.reservation.interfaces.events.ReservationEndedIntegrationEvent;
+import com.spottrack.platform.reservation.interfaces.events.ReservationExpiredIntegrationEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 /**
- * Once the reservation it was tracking is over (ended or cancelled), the
+ * Once the reservation it was tracking is over (ended, cancelled or expired), the
  * session tracker's job is done — end it, which cascades (via
  * UsageSessionEndedEventHandler) to calculating and reporting its final
  * activity, after which it's deleted (see SessionTimeCalculatedEventHandler).
@@ -33,6 +34,11 @@ public class SessionTrackerAutoTerminationEventHandler {
 
     @EventListener
     public void on(ReservationCancelledIntegrationEvent event) {
+        endTrackerForReservation(event.reservationId());
+    }
+
+    @EventListener
+    public void on(ReservationExpiredIntegrationEvent event) {
         endTrackerForReservation(event.reservationId());
     }
 
