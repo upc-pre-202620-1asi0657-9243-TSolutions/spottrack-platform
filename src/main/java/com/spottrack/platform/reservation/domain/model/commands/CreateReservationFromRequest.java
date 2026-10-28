@@ -6,8 +6,7 @@ import com.spottrack.platform.reservation.domain.model.valueobjects.EquipmentId;
 /**
  * Policy-driven counterpart to InitiateExpressReservation: creates the Reservation
  * that backs a submitted ReservationRequest, so StartReservationTimer has something
- * to operate on later (mirrors the express flow, which creates its ReservationRequest
- * in reverse via ExpressReservationInitiatedEventHandler).
+ * to operate on later.
  *
  * No explicit time window is collected at request-submission time, so the
  * Reservation gets a full-day placeholder TimeInterval — the actual usage

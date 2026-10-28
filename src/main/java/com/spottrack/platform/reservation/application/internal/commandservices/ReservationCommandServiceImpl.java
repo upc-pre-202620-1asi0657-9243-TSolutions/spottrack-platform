@@ -57,10 +57,7 @@ public class ReservationCommandServiceImpl implements ReservationCommandService 
             if (equipmentAvailabilityError.isPresent()) {
                 return Result.failure(equipmentAvailabilityError.get());
             }
-            // Guard against the Express path double-firing this: express already
-            // creates its own Reservation, then auto-submits a ReservationRequest as
-            // a side effect (see ExpressReservationInitiatedEventHandler), whose
-            // RequestOccupyEquipmentSubmittedEvent would otherwise land here too.
+            // Never create a second ACTIVE reservation for the same equipment.
             if (reservationRepository.existsByEquipmentIdAndStatus(command.equipmentId().uuid(), ReservationStatus.ACTIVE)) {
                 return Result.failure(ApplicationError.validationError("Reservation", "Equipment already has an active reservation"));
             }
