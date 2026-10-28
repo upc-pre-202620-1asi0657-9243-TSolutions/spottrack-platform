@@ -17,6 +17,7 @@ public class ReservationResourceFromEntityAssembler {
                 reservation.getStatus().name(),
                 reservation.getStartedAt(),
                 reservation.getTimerExpiry(),
+                reservation.getHoldExpiresAt(),
                 reservation.getTimeInterval().startTime().toString(),
                 reservation.getTimeInterval().endTime().toString()
         );

@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 /**
  * Response body for Reservation endpoints.
  * timerExpiry is null until StartReservationTimer is called.
+ * holdExpiresAt is the end of the 10-minute express hold (null for non-express reservations).
  */
 public record ReservationResource(
         String id,
@@ -15,6 +16,7 @@ public record ReservationResource(
         String status,
         LocalDateTime startedAt,
         LocalDateTime timerExpiry,
+        LocalDateTime holdExpiresAt,
         String startTime,   // from timeInterval
         String endTime      // from timeInterval
 ) {}

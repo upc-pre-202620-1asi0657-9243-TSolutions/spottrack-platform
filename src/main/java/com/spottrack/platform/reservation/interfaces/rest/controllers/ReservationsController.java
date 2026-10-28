@@ -7,6 +7,7 @@ import com.spottrack.platform.reservation.application.commandServices.Reservatio
 import com.spottrack.platform.reservation.application.queryservices.ReservationQueryService;
 import com.spottrack.platform.reservation.domain.model.aggregates.Reservation;
 import com.spottrack.platform.reservation.domain.model.commands.CancelReservation;
+import com.spottrack.platform.reservation.domain.model.commands.InitiateExpressReservation;
 import com.spottrack.platform.reservation.domain.model.commands.StartReservationTimer;
 import com.spottrack.platform.reservation.domain.model.queries.GetAllReservationsQuery;
 import com.spottrack.platform.reservation.domain.model.queries.GetReservationByUuidQuery;
@@ -29,6 +30,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
 
 @RestController
@@ -66,7 +68,13 @@ public class ReservationsController {
         }
         var membershipError = gymMembershipAccessGuard.check(clientId);
         if (membershipError.isPresent()) return membershipError.get();
-        var command = InitiateExpressReservationCommandFromResourceAssembler.toCommandFromResource(resource, clientId);
+        InitiateExpressReservation command;
+        try {
+            command = InitiateExpressReservationCommandFromResourceAssembler.toCommandFromResource(resource, clientId);
+        } catch (IllegalArgumentException | DateTimeParseException e) {
+            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.validationError("Reservation", "Invalid equipmentId, startTime or endTime"));
+        }
         var result = commandService.handle(command);
         return switch (result) {
             case Result.Success<Reservation, ApplicationError> s ->

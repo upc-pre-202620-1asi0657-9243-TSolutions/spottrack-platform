@@ -39,6 +39,18 @@ public class ReservationPersistenceEntity extends AuditableAbstractPersistenceEn
     @Column(nullable = true)
     private LocalDateTime timerExpiry;
 
+    @Column(nullable = true)
+    private LocalDateTime holdExpiresAt;
+
+    // Concurrency guards: only populated while the reservation is ACTIVE (client key:
+    // only for express holds), so MySQL's unique index (which allows repeated NULLs)
+    // rejects a second concurrent active reservation for the same equipment/client.
+    @Column(nullable = true, unique = true)
+    private String activeEquipmentKey;
+
+    @Column(nullable = true, unique = true)
+    private Long activeClientKey;
+
     @Column(nullable = false)
     private Time startTime;
 
