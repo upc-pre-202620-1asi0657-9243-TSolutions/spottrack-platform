@@ -131,19 +131,55 @@ public class UsageAnalyticsController {
         return heatmap(authentication, gymId.get(), branchId, from, to);
     }
 
+    @Operation(
+            summary = "PDF usage report of a gym",
+            description = "Formal PDF report of the usage charts of the whole gym: KPIs, occupancy by hour of the day and a per-equipment table. "
+                    + "Dates are inclusive (yyyy-MM-dd) and default to the last 7 days; the range may span at most 366 days. "
+                    + "Only the admin who owns the gym may download it; clients get 403. Labels are in Spanish. "
+                    + "Errors are returned as application/json."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "PDF document (attachment)",
+                    content = @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))),
+            @ApiResponse(responseCode = "400", description = "Invalid date range (from after to, or more than 366 days)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not the admin who owns the gym (also returned for clients and when the gym does not exist)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class)))
+    })
     @GetMapping(value = "/gyms/{gymId}/report.pdf", produces = {MediaType.APPLICATION_PDF_VALUE, MediaType.APPLICATION_JSON_VALUE})
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getGymUsageReport(Authentication authentication,
-                                               @PathVariable String gymId,
+                                               @Parameter(description = "Gym unique identifier (UUID)", required = true) @PathVariable String gymId,
                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return report(authentication, gymId, null, from, to);
     }
 
+    @Operation(
+            summary = "PDF usage report of a branch",
+            description = "Formal PDF report of the usage charts of one branch: KPIs, occupancy by hour of the day and a per-equipment table. "
+                    + "Dates are inclusive (yyyy-MM-dd) and default to the last 7 days; the range may span at most 366 days. "
+                    + "Only the admin who owns the gym may download it; clients get 403. Labels are in Spanish. "
+                    + "Errors are returned as application/json."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "PDF document (attachment)",
+                    content = @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))),
+            @ApiResponse(responseCode = "400", description = "Invalid date range (from after to, or more than 366 days)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not the admin who owns the gym (also returned for clients and when the gym does not exist)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "404", description = "Branch does not exist (checked before access)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class)))
+    })
     @GetMapping(value = "/branches/{branchId}/report.pdf", produces = {MediaType.APPLICATION_PDF_VALUE, MediaType.APPLICATION_JSON_VALUE})
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getBranchUsageReport(Authentication authentication,
-                                                  @PathVariable String branchId,
+                                                  @Parameter(description = "Branch unique identifier (UUID)", required = true) @PathVariable String branchId,
                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         var gymId = gymContextFacade.resolveGymIdForBranch(branchId);
