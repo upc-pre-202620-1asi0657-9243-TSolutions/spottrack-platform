@@ -19,7 +19,9 @@ import com.spottrack.platform.gym.domain.model.valueobjects.GymId;
 import com.spottrack.platform.gym.interfaces.rest.resources.AddBranchResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.AddDniToWhitelistResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.AddZoneResource;
+import com.spottrack.platform.gym.interfaces.rest.resources.BranchResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.CreateGymResource;
+import com.spottrack.platform.gym.interfaces.rest.resources.EquipmentResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.GymResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.GymSummaryResource;
 import com.spottrack.platform.gym.interfaces.rest.resources.WhitelistEntryResource;
@@ -33,8 +35,10 @@ import com.spottrack.platform.shared.application.result.Result;
 import com.spottrack.platform.shared.interfaces.rest.transform.ErrorResponseAssembler;
 import com.spottrack.platform.shared.interfaces.rest.resources.ErrorResource;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -151,10 +155,25 @@ public class GymController {
         };
     }
 
+    @Operation(
+            summary = "List the branches of a gym",
+            description = "Returns the branches (sedes) of the gym. Clients may read any gym they are associated with, not only their active gym, as long as their DNI is still whitelisted there. Admins may read gyms they own."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = BranchResource.class)))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not allowed to read this gym: an admin who does not own it, "
+                    + "or a client that is not associated with it (also returned when the gym does not exist)",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "404", description = "Authenticated account not found (client or admin profile), or the gym does not exist for an admin caller",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
     @GetMapping("/{gymId}/branches")
     @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT')")
     public ResponseEntity<?> getBranchesByGymId(Authentication authentication,
-                                                 @PathVariable String gymId) {
+                                                 @Parameter(description = "Gym unique identifier (UUID)", required = true) @PathVariable String gymId) {
         var accessError = checkGymAccess(authentication, gymId);
         if (accessError.isPresent()) return accessError.get();
         var branches = gymQueryService.handle(new GetBranchesByGymIdQuery(gymId));
@@ -163,10 +182,25 @@ public class GymController {
         return ResponseEntity.ok(resources);
     }
 
+    @Operation(
+            summary = "List the zones of a gym",
+            description = "Returns every zone of the gym with its maximum occupancy, used to draw the floor plan. Clients may read any gym they are associated with, not only their active gym, as long as their DNI is still whitelisted there. Admins may read gyms they own."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = ZoneResource.class)))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not allowed to read this gym: an admin who does not own it, "
+                    + "or a client that is not associated with it (also returned when the gym does not exist)",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "404", description = "Authenticated account not found (client or admin profile), or the gym does not exist for an admin caller",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
     @GetMapping("/{gymId}/zones")
     @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT')")
     public ResponseEntity<?> getZonesByGymId(Authentication authentication,
-                                              @PathVariable String gymId) {
+                                              @Parameter(description = "Gym unique identifier (UUID)", required = true) @PathVariable String gymId) {
         var accessError = checkGymAccess(authentication, gymId);
         if (accessError.isPresent()) return accessError.get();
         var zones = gymQueryService.handle(new GetZonesByGymIdQuery(gymId));
@@ -176,10 +210,25 @@ public class GymController {
         return ResponseEntity.ok(resources);
     }
 
+    @Operation(
+            summary = "List the equipment of a gym",
+            description = "Returns the equipment of the gym with its current status (AVAILABLE, OCCUPIED, RESERVED...). Clients may read any gym they are associated with, not only their active gym, as long as their DNI is still whitelisted there. Admins may read gyms they own."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = EquipmentResource.class)))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not allowed to read this gym: an admin who does not own it, "
+                    + "or a client that is not associated with it (also returned when the gym does not exist)",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "404", description = "Authenticated account not found (client or admin profile), or the gym does not exist for an admin caller",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
     @GetMapping("/{gymId}/equipments")
     @PreAuthorize("hasAnyRole('ADMIN', 'CLIENT')")
     public ResponseEntity<?> getEquipmentsByGymId(Authentication authentication,
-                                                  @PathVariable String gymId) {
+                                                  @Parameter(description = "Gym unique identifier (UUID)", required = true) @PathVariable String gymId) {
         var accessError = checkGymAccess(authentication, gymId);
         if (accessError.isPresent()) return accessError.get();
         var resources = gymContextFacade.findEquipmentsByGymId(gymId).stream()
