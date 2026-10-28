@@ -10,5 +10,7 @@ public interface TechnicianRepository {
     Optional<Technician> findById(TechnicianId id);
     boolean existsById(TechnicianId id);
     List<Technician> findAll();
+    Optional<Technician> findByUserId(Long userId);
+    List<Technician> findByAdminUserIdOrLegacy(Long adminUserId);
     Technician save(Technician technician);
 }

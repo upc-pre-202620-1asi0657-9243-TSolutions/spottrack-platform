@@ -13,17 +13,27 @@ public class Technician extends AbstractDomainAggregateRoot<Technician> {
 
     private TechnicianId technicianId;
     private String name;
+    private Long userId;
+    private Long adminUserId;
 
     protected Technician() {}
 
     public Technician(CreateTechnician command) {
         this.technicianId = new TechnicianId(UUID.randomUUID().toString());
         this.name = command.name();
+        this.userId = command.userId();
+        this.adminUserId = command.adminUserId();
         registerDomainEvent(new TechnicianCreatedEvent(this.technicianId.uuid(), this.name));
     }
 
     public Technician(String technicianId, String name) {
+        this(technicianId, name, null, null);
+    }
+
+    public Technician(String technicianId, String name, Long userId, Long adminUserId) {
         this.technicianId = new TechnicianId(technicianId);
         this.name = name;
+        this.userId = userId;
+        this.adminUserId = adminUserId;
     }
 }
