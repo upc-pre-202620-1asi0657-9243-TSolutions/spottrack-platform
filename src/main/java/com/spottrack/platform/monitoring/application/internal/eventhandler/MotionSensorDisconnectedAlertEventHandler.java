@@ -6,6 +6,7 @@ import com.spottrack.platform.monitoring.interfaces.events.MotionSensorDisconnec
 import com.spottrack.platform.shared.application.commandservices.AlertCommandService;
 import com.spottrack.platform.shared.domain.model.commands.CreateAlertCommand;
 import com.spottrack.platform.shared.domain.model.valueobjects.AlertSeverity;
+import com.spottrack.platform.shared.domain.model.valueobjects.AlertSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class MotionSensorDisconnectedAlertEventHandler {
                 adminUserId,
                 event.equipmentId(),
                 AlertSeverity.WARNING,
+                AlertSource.SENSOR,
                 "IoT motion sensor disconnected from the network."
         ));
         log.info("Motion sensor disconnection alert created for admin {} on equipment {}.", adminUserId, event.equipmentId());

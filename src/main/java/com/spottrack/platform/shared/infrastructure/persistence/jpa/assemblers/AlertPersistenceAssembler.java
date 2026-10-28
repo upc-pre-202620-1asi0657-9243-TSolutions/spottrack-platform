@@ -13,8 +13,11 @@ public final class AlertPersistenceAssembler {
                 entity.getAdminUserId(),
                 entity.getEquipmentId(),
                 entity.getSeverity(),
+                entity.getSource(),
                 entity.getMessage(),
                 entity.isResolved(),
+                entity.getResolvedAt(),
+                entity.getClearedAt(),
                 entity.getCreatedAt()
         );
     }
@@ -26,8 +29,11 @@ public final class AlertPersistenceAssembler {
         entity.setAdminUserId(alert.getAdminUserId());
         entity.setEquipmentId(alert.getEquipmentId());
         entity.setSeverity(alert.getSeverity());
+        entity.setSource(alert.getSource());
         entity.setMessage(alert.getMessage());
         entity.setResolved(alert.isResolved());
+        entity.setResolvedAt(alert.getResolvedAt());
+        entity.setClearedAt(alert.getClearedAt());
         return entity;
     }
 }

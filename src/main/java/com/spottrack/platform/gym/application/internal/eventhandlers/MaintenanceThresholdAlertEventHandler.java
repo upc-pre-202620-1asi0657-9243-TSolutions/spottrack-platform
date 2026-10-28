@@ -6,6 +6,7 @@ import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.shared.application.commandservices.AlertCommandService;
 import com.spottrack.platform.shared.domain.model.commands.CreateAlertCommand;
 import com.spottrack.platform.shared.domain.model.valueobjects.AlertSeverity;
+import com.spottrack.platform.shared.domain.model.valueobjects.AlertSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class MaintenanceThresholdAlertEventHandler {
                 adminUserId,
                 event.equipmentId(),
                 AlertSeverity.WARNING,
+                AlertSource.MAINTENANCE,
                 "Equipment maintenance threshold reached: preventive maintenance required."
         ));
         log.info("Maintenance threshold alert created for admin {} on equipment {}.", adminUserId, event.equipmentId());

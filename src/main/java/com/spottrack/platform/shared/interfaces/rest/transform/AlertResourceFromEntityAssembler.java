@@ -12,7 +12,9 @@ public class AlertResourceFromEntityAssembler {
                 alert.getSeverity().name(),
                 alert.getMessage(),
                 alert.isResolved(),
-                alert.getCreatedAt()
+                alert.getCreatedAt(),
+                alert.getSource() != null ? alert.getSource().name() : null,
+                alert.getResolvedAt()
         );
     }
 }

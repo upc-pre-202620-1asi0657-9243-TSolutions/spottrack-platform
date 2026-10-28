@@ -27,6 +27,10 @@ public record AlertResource(
         boolean isResolved,
 
         @Schema(description = "Alert creation timestamp")
-        Date createdAt
+        Date createdAt,
+
+        String source,
+
+        Date resolvedAt
 ) {
 }

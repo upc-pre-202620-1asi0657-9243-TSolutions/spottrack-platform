@@ -6,6 +6,7 @@ import com.spottrack.platform.monitoring.interfaces.events.AnomalyReportSubmitte
 import com.spottrack.platform.shared.application.commandservices.AlertCommandService;
 import com.spottrack.platform.shared.domain.model.commands.CreateAlertCommand;
 import com.spottrack.platform.shared.domain.model.valueobjects.AlertSeverity;
+import com.spottrack.platform.shared.domain.model.valueobjects.AlertSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class AnomalyReportSubmittedAlertEventHandler {
                 adminUserId,
                 event.equipmentId(),
                 AlertSeverity.CRITICAL,
+                AlertSource.ANOMALY,
                 "Anomaly reported: " + event.anomalyDescription()
         ));
         log.info("Anomaly alert created for admin {} on equipment {}.", adminUserId, event.equipmentId());
