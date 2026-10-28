@@ -54,6 +54,8 @@ Same thing for `prod`. After the first apply, push to `develop` (or re-run the w
 
 - **App change:** merge to `develop` → dev updates. Merge `develop` into `main` → prod updates after approval.
 - **Infra change:** edit the `.tf` files, then `./tf.sh dev apply`, check it, then `./tf.sh prod apply`.
+- **Bad deploy:** if the new image doesn't answer `/v3/api-docs` within 5 minutes, `deploy.sh` restarts the previous container and the workflow fails. `app-image` (what the VM redeploys on boot) only moves to images that came up healthy.
+- **`scripts/deploy.sh` change:** GitHub deploys use the repo's copy right away; run `./tf.sh <env> apply` so boots use it too.
 - **Manual redeploy / debug:**
   ```bash
   gcloud compute ssh spottrack-dev-backend --zone us-central1-a --tunnel-through-iap

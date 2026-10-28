@@ -55,8 +55,11 @@ jobs:
       - name: Deploy to VM
         run: |
           VM="spottrack-$ENV_NAME-backend"
-          gcloud compute instances add-metadata "$VM" --zone "$ZONE" \
-            --metadata app-image="$IMAGE"
+          # Runs this commit's deploy.sh, which rolls back to the previous container
+          # if the new image never gets healthy.
           gcloud compute ssh "$VM" --zone "$ZONE" --tunnel-through-iap \
             --strict-host-key-checking=no --quiet \
-            --command 'curl -sf -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/attributes/deploy-script | sudo bash'
+            --command "sudo env IMAGE='$IMAGE' bash -s" < infra/terraform/scripts/deploy.sh
+          # Only a healthy image becomes the one the VM redeploys on boot.
+          gcloud compute instances add-metadata "$VM" --zone "$ZONE" \
+            --metadata app-image="$IMAGE"
