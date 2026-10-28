@@ -52,7 +52,7 @@ public class SnakeCaseWithPluralizedTablePhysicalNamingStrategy implements Physi
         final String newName = identifier.getText()
                 .replaceAll(regex, replacement)
                 .toLowerCase();
-        return Identifier.toIdentifier(newName);
+        return Identifier.toIdentifier(newName, identifier.isQuoted());
     }
 
     /**
@@ -62,6 +62,6 @@ public class SnakeCaseWithPluralizedTablePhysicalNamingStrategy implements Physi
      */
     private Identifier toPlural(final Identifier identifier) {
         final String newName = pluralize(identifier.getText());
-        return Identifier.toIdentifier(newName);
+        return Identifier.toIdentifier(newName, identifier.isQuoted());
     }
 }
