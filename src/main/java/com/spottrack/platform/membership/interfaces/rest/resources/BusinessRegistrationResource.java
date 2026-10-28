@@ -2,6 +2,7 @@ package com.spottrack.platform.membership.interfaces.rest.resources;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 @Schema(description = "Owner, company and plan data submitted when registering a business")
 public record BusinessRegistrationResource(
@@ -13,8 +14,10 @@ public record BusinessRegistrationResource(
         @NotBlank String firstName,
         @Schema(description = "Owner last name", example = "Ramirez")
         @NotBlank String lastName,
-        @Schema(description = "Owner phone number", example = "+51987654321")
-        @NotBlank String phoneNumber,
+        @Schema(description = "Owner phone number; digits only, 7 to 15, without +, spaces or hyphens",
+                example = "987654321")
+        @NotBlank
+        @Pattern(regexp = PHONE_REGEX, message = PHONE_MESSAGE) String phoneNumber,
         @Schema(description = "Owner national identity document", example = "74125836")
         @NotBlank String dni,
         @Schema(description = "Company name; also used as the name of the gym created after payment",
@@ -24,8 +27,10 @@ public record BusinessRegistrationResource(
         @NotBlank String ruc,
         @Schema(description = "Legal structure of the company", example = "S.A.C.")
         @NotBlank String legalStructure,
-        @Schema(description = "Company phone number", example = "+5114445566")
-        @NotBlank String companyPhone,
+        @Schema(description = "Company phone number; digits only, 7 to 15, without +, spaces or hyphens",
+                example = "5114445566")
+        @NotBlank
+        @Pattern(regexp = PHONE_REGEX, message = PHONE_MESSAGE) String companyPhone,
         @Schema(description = "Company contact email", example = "contacto@spotgym.pe")
         @NotBlank String companyEmail,
         @Schema(description = "Company street address", example = "Av. Larco 123")
@@ -37,4 +42,8 @@ public record BusinessRegistrationResource(
         @Schema(description = "Selected plan: BASIC (69 USD), MID (109 USD) or PLATINUM (189 USD); case-insensitive",
                 example = "Basic", allowableValues = {"BASIC", "MID", "PLATINUM"})
         @NotBlank String membershipTier
-) {}
+) {
+    private static final String PHONE_REGEX = "^[0-9]{7,15}$";
+    private static final String PHONE_MESSAGE =
+            "Phone number must contain only digits, between 7 and 15, without +, spaces or hyphens";
+}
