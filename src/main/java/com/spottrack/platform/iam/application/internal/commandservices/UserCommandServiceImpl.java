@@ -8,21 +8,27 @@ import com.spottrack.platform.iam.domain.model.commands.ChangePasswordCommand;
 import com.spottrack.platform.iam.domain.model.commands.DeactivateAccountCommand;
 import com.spottrack.platform.iam.domain.model.commands.ForgotPasswordVerifyCommand;
 import com.spottrack.platform.iam.domain.model.commands.ProvisionIamAccountCommand;
+import com.spottrack.platform.iam.domain.model.commands.RegisterTechnicianCommand;
 import com.spottrack.platform.iam.domain.model.commands.SignInCommand;
 import com.spottrack.platform.profiles.interfaces.acl.ProfilesContextFacade;
 import com.spottrack.platform.iam.domain.model.commands.SignOutCommand;
 import com.spottrack.platform.iam.domain.model.commands.SignUpCommand;
 import com.spottrack.platform.iam.domain.model.commands.UpdateNotificationPreferencesCommand;
 import com.spottrack.platform.iam.domain.model.entities.Role;
+import com.spottrack.platform.iam.domain.model.valueobjects.Roles;
 import com.spottrack.platform.iam.domain.repositories.PendingRegistrationRepository;
 import com.spottrack.platform.iam.domain.repositories.RoleRepository;
 import com.spottrack.platform.iam.domain.repositories.UserRepository;
 import com.spottrack.platform.iam.interfaces.events.RoleAssignedIntegrationEvent;
+import com.spottrack.platform.maintenance.interfaces.acl.MaintenanceContextFacade;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.NoTransactionException;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.util.List;
 
@@ -36,6 +42,7 @@ public class UserCommandServiceImpl implements UserCommandService {
     private final ApplicationEventPublisher eventPublisher;
     private final PendingRegistrationRepository pendingRegistrationRepository;
     private final ProfilesContextFacade profilesContextFacade;
+    private final MaintenanceContextFacade maintenanceContextFacade;
 
     public UserCommandServiceImpl(
             UserRepository userRepository,
@@ -44,7 +51,8 @@ public class UserCommandServiceImpl implements UserCommandService {
             RoleRepository roleRepository,
             ApplicationEventPublisher eventPublisher,
             PendingRegistrationRepository pendingRegistrationRepository,
-            ProfilesContextFacade profilesContextFacade) {
+            ProfilesContextFacade profilesContextFacade,
+            MaintenanceContextFacade maintenanceContextFacade) {
         this.userRepository = userRepository;
         this.hashingService = hashingService;
         this.tokenService = tokenService;
@@ -52,10 +60,16 @@ public class UserCommandServiceImpl implements UserCommandService {
         this.eventPublisher = eventPublisher;
         this.pendingRegistrationRepository = pendingRegistrationRepository;
         this.profilesContextFacade = profilesContextFacade;
+        this.maintenanceContextFacade = maintenanceContextFacade;
     }
 
     @Override
     public Result<User, ApplicationError> handle(SignUpCommand command) {
+        if (command.roles() != null && command.roles().stream()
+                .anyMatch(role -> role.getName() == Roles.ROLE_TECHNICIAN)) {
+            return Result.failure(technicianRoleRestricted());
+        }
+
         if (userRepository.existsByUsername(command.username())) {
             return Result.failure(ApplicationError.conflict("USER", "Username already exists: " + command.username()));
         }
@@ -93,6 +107,52 @@ public class UserCommandServiceImpl implements UserCommandService {
         ));
 
         return Result.success(reloadedUser);
+    }
+
+    @Transactional
+    @Override
+    public Result<ImmutablePair<User, String>, ApplicationError> handle(RegisterTechnicianCommand command) {
+        if (userRepository.existsByUsername(command.email())) {
+            return Result.failure(ApplicationError.conflict("USER", "Username already exists: " + command.email()));
+        }
+
+        if (pendingRegistrationRepository.existsActivePendingByEmail(command.email())) {
+            return Result.failure(ApplicationError.conflict(
+                    "USER",
+                    "A pending business registration exists for: " + command.email()
+            ));
+        }
+
+        var technicianRole = new Role(Roles.ROLE_TECHNICIAN);
+        var roles = List.of(roleRepository.findByName(technicianRole.getName()).orElse(technicianRole));
+
+        var user = new User(command.email(), hashingService.encode(command.password()), roles);
+        var savedUser = userRepository.save(user);
+
+        var fullName = (command.firstName() + " " + command.lastName()).trim();
+        var provisioned = maintenanceContextFacade.provisionTechnician(
+                savedUser.getId(), command.adminUserId(), fullName);
+        if (provisioned instanceof Result.Failure<String, ApplicationError> failure) {
+            markTransactionRollbackOnly();
+            return Result.failure(failure.error());
+        }
+        var technicianId = ((Result.Success<String, ApplicationError>) provisioned).value();
+
+        return Result.success(ImmutablePair.of(savedUser, technicianId));
+    }
+
+    private static ApplicationError technicianRoleRestricted() {
+        return ApplicationError.businessRuleViolation(
+                "technician-role-restricted",
+                "Technician accounts can only be created by an administrator through POST /api/v1/users/technicians");
+    }
+
+    private static void markTransactionRollbackOnly() {
+        try {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        } catch (NoTransactionException ignored) {
+            // invoked outside a transaction (e.g. plain unit tests); nothing to roll back
+        }
     }
 
     @Override

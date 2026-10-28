@@ -5,6 +5,7 @@ import com.spottrack.platform.iam.domain.model.commands.ChangePasswordCommand;
 import com.spottrack.platform.iam.domain.model.commands.DeactivateAccountCommand;
 import com.spottrack.platform.iam.domain.model.commands.ForgotPasswordVerifyCommand;
 import com.spottrack.platform.iam.domain.model.commands.ProvisionIamAccountCommand;
+import com.spottrack.platform.iam.domain.model.commands.RegisterTechnicianCommand;
 import com.spottrack.platform.iam.domain.model.commands.SignInCommand;
 import com.spottrack.platform.iam.domain.model.commands.SignOutCommand;
 import com.spottrack.platform.iam.domain.model.commands.SignUpCommand;
@@ -15,6 +16,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 
 public interface UserCommandService {
     Result<User, ApplicationError> handle(SignUpCommand command);
+    Result<ImmutablePair<User, String>, ApplicationError> handle(RegisterTechnicianCommand command);
     Result<ImmutablePair<User, String>, ApplicationError> handle(SignInCommand command);
     Result<User, ApplicationError> handle(ChangePasswordCommand command);
     Result<User, ApplicationError> handle(ForgotPasswordVerifyCommand command);

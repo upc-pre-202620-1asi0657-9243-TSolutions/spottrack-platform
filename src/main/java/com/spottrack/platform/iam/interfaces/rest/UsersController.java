@@ -7,12 +7,24 @@ import com.spottrack.platform.iam.domain.model.queries.GetUserByIdQuery;
 import com.spottrack.platform.iam.domain.model.queries.GetUserByUsernameQuery;
 import com.spottrack.platform.iam.interfaces.rest.resources.ChangePasswordResource;
 import com.spottrack.platform.iam.interfaces.rest.resources.NotificationPreferencesResource;
+import com.spottrack.platform.iam.interfaces.rest.resources.RegisterTechnicianResource;
 import com.spottrack.platform.iam.interfaces.rest.resources.SignUpResource;
+import com.spottrack.platform.iam.interfaces.rest.resources.TechnicianAccountResource;
 import com.spottrack.platform.iam.interfaces.rest.transform.ChangePasswordCommandFromResourceAssembler;
+import com.spottrack.platform.iam.interfaces.rest.transform.RegisterTechnicianCommandFromResourceAssembler;
 import com.spottrack.platform.iam.interfaces.rest.transform.SignUpCommandFromResourceAssembler;
+import com.spottrack.platform.iam.interfaces.rest.transform.TechnicianAccountResourceAssembler;
 import com.spottrack.platform.iam.interfaces.rest.transform.UpdateNotificationPreferencesCommandFromResourceAssembler;
 import com.spottrack.platform.iam.interfaces.rest.transform.UserResourceFromEntityAssembler;
+import com.spottrack.platform.shared.application.result.ApplicationError;
+import com.spottrack.platform.shared.interfaces.rest.resources.ErrorResource;
+import com.spottrack.platform.shared.interfaces.rest.transform.ErrorResponseAssembler;
 import com.spottrack.platform.shared.interfaces.rest.transform.ResponseEntityAssembler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -44,6 +56,39 @@ public class UsersController {
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
                 UserResourceFromEntityAssembler::toResourceFromEntity,
+                HttpStatus.CREATED
+        );
+    }
+
+    @PostMapping("/technicians")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Register a technical staff account",
+            description = "Creates a login account with role ROLE_TECHNICIAN and registers it in the maintenance "
+                    + "roster of the calling administrator. Technician accounts cannot be created through public sign-up.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Technician account created",
+                    content = @Content(schema = @Schema(implementation = TechnicianAccountResource.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid payload (email format, password length, blank names)",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not an administrator",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "409", description = "USER_CONFLICT: the email is already registered",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class)))
+    })
+    public ResponseEntity<?> registerTechnician(@Valid @RequestBody RegisterTechnicianResource resource,
+                                                Authentication authentication) {
+        var admin = userQueryService.handle(new GetUserByUsernameQuery(authentication.getName()));
+        if (admin.isEmpty()) {
+            return ErrorResponseAssembler.toErrorResponseFromApplicationError(
+                    ApplicationError.notFound("Admin", authentication.getName()));
+        }
+        var command = RegisterTechnicianCommandFromResourceAssembler.toCommandFromResource(resource, admin.get().getId());
+        var result = userCommandService.handle(command);
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                TechnicianAccountResourceAssembler::toResource,
                 HttpStatus.CREATED
         );
     }
