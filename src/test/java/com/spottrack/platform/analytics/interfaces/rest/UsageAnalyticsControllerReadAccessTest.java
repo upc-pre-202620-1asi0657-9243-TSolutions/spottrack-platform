@@ -1,6 +1,8 @@
 package com.spottrack.platform.analytics.interfaces.rest;
 
+import com.spottrack.platform.analytics.application.outboundservices.UsageReportRenderer;
 import com.spottrack.platform.analytics.application.queryservices.UsageAnalyticsQueryService;
+import com.spottrack.platform.analytics.application.queryservices.UsageReportQueryService;
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageHeatmapQuery;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
@@ -44,7 +46,8 @@ class UsageAnalyticsControllerReadAccessTest {
         gymContextFacade = mock(GymContextFacade.class);
         iamContextFacade = mock(IamContextFacade.class);
         profilesContextFacade = mock(ProfilesContextFacade.class);
-        controller = new UsageAnalyticsController(queryService, gymContextFacade, iamContextFacade, profilesContextFacade);
+        controller = new UsageAnalyticsController(queryService, mock(UsageReportQueryService.class), mock(UsageReportRenderer.class),
+                gymContextFacade, iamContextFacade, profilesContextFacade);
         when(queryService.handle(any(GetUsageHeatmapQuery.class))).thenReturn(heatmap());
     }
 
