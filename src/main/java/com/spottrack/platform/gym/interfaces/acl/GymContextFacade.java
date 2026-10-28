@@ -26,6 +26,12 @@ public interface GymContextFacade {
 
     boolean isDniWhitelistedForGym(String gymId, String dni);
 
+    /**
+     * Creates a gym owned by the given admin. Idempotent: if the admin already owns a gym with the
+     * same name (case-insensitive), nothing is created. Throws if the gym cannot be created.
+     */
+    void provisionGym(Long adminUserId, String gymName);
+
     // Returns the gymId for the branch that owns the given zone, empty if zone or branch not found.
     Optional<String> resolveGymIdForZone(String zoneId);
 

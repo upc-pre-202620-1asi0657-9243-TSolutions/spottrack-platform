@@ -1,9 +1,12 @@
 package com.spottrack.platform.gym.application.acl;
 
 import com.spottrack.platform.gym.application.commandServices.EquipmentCommandService;
+import com.spottrack.platform.gym.application.commandServices.GymCommandService;
 import com.spottrack.platform.gym.application.queryservices.EquipmentQueryService;
 import com.spottrack.platform.gym.application.queryservices.GymQueryService;
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.domain.model.aggregates.Gym;
+import com.spottrack.platform.gym.domain.model.commands.CreateGym;
 import com.spottrack.platform.gym.domain.model.commands.UpdateEquipmentStatus;
 import com.spottrack.platform.gym.domain.model.queries.GetAvailableAlternativesQuery;
 import com.spottrack.platform.gym.domain.model.queries.GetEquipmentById;
@@ -18,16 +21,21 @@ import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.Eq
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.GymWhitelistPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.ZonePersistenceRepository;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
+import com.spottrack.platform.shared.application.result.ApplicationError;
+import com.spottrack.platform.shared.application.result.Result;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class GymContextFacadeImpl implements GymContextFacade {
 
     private final EquipmentCommandService equipmentCommandService;
     private final EquipmentQueryService equipmentQueryService;
+    private final GymCommandService gymCommandService;
     private final GymQueryService gymQueryService;
     private final GymWhitelistPersistenceRepository gymWhitelistPersistenceRepository;
     private final ZonePersistenceRepository zonePersistenceRepository;
@@ -36,6 +44,7 @@ public class GymContextFacadeImpl implements GymContextFacade {
 
     public GymContextFacadeImpl(EquipmentCommandService equipmentCommandService,
                                 EquipmentQueryService equipmentQueryService,
+                                GymCommandService gymCommandService,
                                 GymQueryService gymQueryService,
                                 GymWhitelistPersistenceRepository gymWhitelistPersistenceRepository,
                                 ZonePersistenceRepository zonePersistenceRepository,
@@ -43,6 +52,7 @@ public class GymContextFacadeImpl implements GymContextFacade {
                                 EquipmentPersistenceRepository equipmentPersistenceRepository) {
         this.equipmentCommandService = equipmentCommandService;
         this.equipmentQueryService = equipmentQueryService;
+        this.gymCommandService = gymCommandService;
         this.gymQueryService = gymQueryService;
         this.gymWhitelistPersistenceRepository = gymWhitelistPersistenceRepository;
         this.zonePersistenceRepository = zonePersistenceRepository;
@@ -75,6 +85,22 @@ public class GymContextFacadeImpl implements GymContextFacade {
     @Override
     public boolean isDniWhitelistedForGym(String gymId, String dni) {
         return gymWhitelistPersistenceRepository.existsByGymIdAndDni(gymId, dni);
+    }
+
+    @Override
+    public void provisionGym(Long adminUserId, String gymName) {
+        var alreadyOwned = gymQueryService.handle(new GetGymsByAdminUserId(adminUserId)).stream()
+                .anyMatch(gym -> gym.getName() != null && gym.getName().equalsIgnoreCase(gymName));
+        if (alreadyOwned) {
+            log.info("Gym '{}' already exists for adminUserId {}, skipping", gymName, adminUserId);
+            return;
+        }
+        var result = gymCommandService.handle(new CreateGym(gymName, adminUserId));
+        if (result instanceof Result.Failure<Gym, ApplicationError> failure) {
+            log.error("Failed to provision gym '{}' for adminUserId {}: {}", gymName, adminUserId, failure.error());
+            throw new RuntimeException("Gym provisioning failed: " + failure.error().message());
+        }
+        log.info("Gym '{}' provisioned for adminUserId {}", gymName, adminUserId);
     }
 
     @Override
