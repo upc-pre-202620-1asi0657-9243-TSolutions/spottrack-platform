@@ -6,6 +6,7 @@ import com.spottrack.platform.gym.application.queryservices.EquipmentQueryServic
 import com.spottrack.platform.gym.application.queryservices.GymQueryService;
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.domain.model.aggregates.Gym;
+import com.spottrack.platform.gym.domain.model.entities.Branch;
 import com.spottrack.platform.gym.domain.model.commands.CreateGym;
 import com.spottrack.platform.gym.domain.model.commands.UpdateEquipmentStatus;
 import com.spottrack.platform.gym.domain.model.queries.GetAvailableAlternativesQuery;
@@ -15,6 +16,7 @@ import com.spottrack.platform.gym.domain.model.queries.GetGymsByAdminUserId;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.GymId;
+import com.spottrack.platform.gym.infrastructure.persistence.jpa.assemblers.BranchPersistenceAssembler;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.assemblers.EquipmentPersistenceAssembler;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.BranchPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;
@@ -164,5 +166,12 @@ public class GymContextFacadeImpl implements GymContextFacade {
     @Override
     public Optional<String> findBranchName(String branchId) {
         return branchPersistenceRepository.findByBranchId(branchId).map(branch -> branch.getName());
+    }
+
+    @Override
+    public List<Branch> findBranchesByGymId(String gymId) {
+        return branchPersistenceRepository.findByGymId(gymId).stream()
+                .map(BranchPersistenceAssembler::toDomainFromPersistence)
+                .toList();
     }
 }
