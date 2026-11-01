@@ -1,6 +1,7 @@
 package com.spottrack.platform.gym.interfaces.acl;
 
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.domain.model.entities.Branch;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
 
 import java.util.List;
@@ -58,4 +59,7 @@ public interface GymContextFacade {
 
     // Returns the name of the given branch, empty if the branch is not found.
     Optional<String> findBranchName(String branchId);
+
+    // Returns the branches of the given gym, empty if the gym has none or does not exist.
+    List<Branch> findBranchesByGymId(String gymId);
 }
