@@ -52,4 +52,10 @@ public interface GymContextFacade {
 
     // Returns all Equipment aggregates placed in any zone of the given branch.
     List<Equipment> findEquipmentsByBranchId(String branchId);
+
+    // Returns the name of the given gym, empty if the gym is not found.
+    Optional<String> findGymName(String gymId);
+
+    // Returns the name of the given branch, empty if the branch is not found.
+    Optional<String> findBranchName(String branchId);
 }

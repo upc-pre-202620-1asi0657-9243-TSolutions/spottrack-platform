@@ -155,4 +155,14 @@ public class GymContextFacadeImpl implements GymContextFacade {
                 .map(EquipmentPersistenceAssembler::toDomainFromPersistence)
                 .toList();
     }
+
+    @Override
+    public Optional<String> findGymName(String gymId) {
+        return gymQueryService.handle(new GetGymById(new GymId(gymId))).map(Gym::getName);
+    }
+
+    @Override
+    public Optional<String> findBranchName(String branchId) {
+        return branchPersistenceRepository.findByBranchId(branchId).map(branch -> branch.getName());
+    }
 }

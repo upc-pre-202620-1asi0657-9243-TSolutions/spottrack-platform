@@ -1,7 +1,10 @@
 package com.spottrack.platform.analytics.interfaces.rest;
 
+import com.spottrack.platform.analytics.application.outboundservices.UsageReportRenderer;
 import com.spottrack.platform.analytics.application.queryservices.UsageAnalyticsQueryService;
+import com.spottrack.platform.analytics.application.queryservices.UsageReportQueryService;
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageHeatmapQuery;
+import com.spottrack.platform.analytics.domain.model.queries.GetUsageReportQuery;
 import com.spottrack.platform.analytics.interfaces.rest.resources.UsageHeatmapResource;
 import com.spottrack.platform.analytics.interfaces.rest.transform.UsageHeatmapResourceFromValueAssembler;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
@@ -18,6 +21,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,13 +34,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Locale;
 
 /**
  * Occupancy and heat built from real sensor sessions. Dates are inclusive and
  * default to the last 7 days. Readable by the admin who owns the gym and by
  * clients associated with it, whether or not it is their active gym (the client map shows the heat).
+ * The printable PDF report is restricted to the admin who owns the gym.
  */
 @RestController
 @Tag(name = "usage-analytics")
@@ -44,15 +53,21 @@ public class UsageAnalyticsController {
     private static final int MAX_RANGE_DAYS = 366;
 
     private final UsageAnalyticsQueryService usageAnalyticsQueryService;
+    private final UsageReportQueryService usageReportQueryService;
+    private final UsageReportRenderer usageReportRenderer;
     private final GymContextFacade gymContextFacade;
     private final IamContextFacade iamContextFacade;
     private final ProfilesContextFacade profilesContextFacade;
 
     public UsageAnalyticsController(UsageAnalyticsQueryService usageAnalyticsQueryService,
+                                    UsageReportQueryService usageReportQueryService,
+                                    UsageReportRenderer usageReportRenderer,
                                     GymContextFacade gymContextFacade,
                                     IamContextFacade iamContextFacade,
                                     ProfilesContextFacade profilesContextFacade) {
         this.usageAnalyticsQueryService = usageAnalyticsQueryService;
+        this.usageReportQueryService = usageReportQueryService;
+        this.usageReportRenderer = usageReportRenderer;
         this.gymContextFacade = gymContextFacade;
         this.iamContextFacade = iamContextFacade;
         this.profilesContextFacade = profilesContextFacade;
@@ -116,29 +131,147 @@ public class UsageAnalyticsController {
         return heatmap(authentication, gymId.get(), branchId, from, to);
     }
 
+    @Operation(
+            summary = "PDF usage report of a gym",
+            description = "Formal PDF report of the usage charts of the whole gym: KPIs, occupancy by hour of the day and a per-equipment table. "
+                    + "Dates are inclusive (yyyy-MM-dd) and default to the last 7 days; the range may span at most 366 days. "
+                    + "Only the admin who owns the gym may download it; clients get 403. Labels are in Spanish. "
+                    + "Errors are returned as application/json."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "PDF document (attachment)",
+                    content = @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))),
+            @ApiResponse(responseCode = "400", description = "Invalid date range (from after to, or more than 366 days)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not the admin who owns the gym (also returned for clients and when the gym does not exist)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class)))
+    })
+    @GetMapping(value = "/gyms/{gymId}/report.pdf", produces = {MediaType.APPLICATION_PDF_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getGymUsageReport(Authentication authentication,
+                                               @Parameter(description = "Gym unique identifier (UUID)", required = true) @PathVariable String gymId,
+                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return report(authentication, gymId, null, from, to);
+    }
+
+    @Operation(
+            summary = "PDF usage report of a branch",
+            description = "Formal PDF report of the usage charts of one branch: KPIs, occupancy by hour of the day and a per-equipment table. "
+                    + "Dates are inclusive (yyyy-MM-dd) and default to the last 7 days; the range may span at most 366 days. "
+                    + "Only the admin who owns the gym may download it; clients get 403. Labels are in Spanish. "
+                    + "Errors are returned as application/json."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "PDF document (attachment)",
+                    content = @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))),
+            @ApiResponse(responseCode = "400", description = "Invalid date range (from after to, or more than 366 days)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid authentication token",
+                    content = @Content(schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not the admin who owns the gym (also returned for clients and when the gym does not exist)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class))),
+            @ApiResponse(responseCode = "404", description = "Branch does not exist (checked before access)",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ErrorResource.class)))
+    })
+    @GetMapping(value = "/branches/{branchId}/report.pdf", produces = {MediaType.APPLICATION_PDF_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getBranchUsageReport(Authentication authentication,
+                                                  @Parameter(description = "Branch unique identifier (UUID)", required = true) @PathVariable String branchId,
+                                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        var gymId = gymContextFacade.resolveGymIdForBranch(branchId);
+        if (gymId.isEmpty()) {
+            return jsonError(ApplicationError.notFound("Branch", branchId));
+        }
+        return report(authentication, gymId.get(), branchId, from, to);
+    }
+
     private ResponseEntity<?> heatmap(Authentication authentication, String gymId, String branchId,
                                       LocalDate from, LocalDate to) {
         if (!canReadGym(authentication, gymId)) {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(ApplicationError.forbidden("Gym", "gymId:" + gymId));
         }
-        var end = to != null ? to : LocalDate.now();
-        var start = from != null ? from : end.minusDays(6);
-        if (end.isBefore(start) || ChronoUnit.DAYS.between(start, end) >= MAX_RANGE_DAYS) {
-            return ErrorResponseAssembler.toErrorResponseFromApplicationError(ApplicationError.validationError(
-                    "dateRange", "from must be on or before to, spanning at most " + MAX_RANGE_DAYS + " days"));
+        var window = DateWindow.of(from, to);
+        if (!window.isValid()) {
+            return ErrorResponseAssembler.toErrorResponseFromApplicationError(invalidRange());
         }
-        var heatmap = usageAnalyticsQueryService.handle(new GetUsageHeatmapQuery(gymId, branchId, start, end));
+        var heatmap = usageAnalyticsQueryService.handle(new GetUsageHeatmapQuery(gymId, branchId, window.start(), window.end()));
         return ResponseEntity.ok(UsageHeatmapResourceFromValueAssembler.toResourceFromValue(heatmap));
     }
 
-    private boolean canReadGym(Authentication authentication, String gymId) {
-        var username = authentication.getName();
-        if (hasRole(authentication, "ROLE_ADMIN")) {
-            var adminUserId = iamContextFacade.fetchUserIdByUsername(username).orElse(0L);
-            return gymContextFacade.isGymOwnedByAdmin(gymId, adminUserId);
+    private ResponseEntity<?> report(Authentication authentication, String gymId, String branchId,
+                                     LocalDate from, LocalDate to) {
+        if (!isOwningAdmin(authentication, gymId)) {
+            return jsonError(ApplicationError.forbidden("Gym", "gymId:" + gymId));
         }
-        var clientId = profilesContextFacade.fetchClientIdByEmail(username);
+        var window = DateWindow.of(from, to);
+        if (!window.isValid()) {
+            return jsonError(invalidRange());
+        }
+        var report = usageReportQueryService.handle(new GetUsageReportQuery(gymId, branchId, window.start(), window.end()));
+        var pdf = usageReportRenderer.render(report);
+        var scopeName = report.branchName() != null ? report.branchName() : report.gymName();
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(fileName(scopeName, window)).build().toString())
+                .cacheControl(CacheControl.noStore())
+                .contentLength(pdf.length)
+                .body(pdf);
+    }
+
+    /** The report endpoints advertise application/pdf, so errors must name their JSON type or content negotiation answers 406. */
+    private static ResponseEntity<?> jsonError(ApplicationError error) {
+        var response = ErrorResponseAssembler.toErrorResponseFromApplicationError(error);
+        return ResponseEntity.status(response.getStatusCode()).contentType(MediaType.APPLICATION_JSON).body(response.getBody());
+    }
+
+    private static ApplicationError invalidRange() {
+        return ApplicationError.validationError(
+                "dateRange", "from must be on or before to, spanning at most " + MAX_RANGE_DAYS + " days");
+    }
+
+    private static String fileName(String scopeName, DateWindow window) {
+        var slug = Normalizer.normalize(scopeName == null ? "" : scopeName, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[^A-Za-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "")
+                .toLowerCase(Locale.ROOT);
+        if (slug.length() > 40) {
+            slug = slug.substring(0, 40).replaceAll("-+$", "");
+        }
+        return "spottrack-usage-" + (slug.isEmpty() ? "gym" : slug) + "-" + window.start() + "_" + window.end() + ".pdf";
+    }
+
+    private boolean canReadGym(Authentication authentication, String gymId) {
+        if (hasRole(authentication, "ROLE_ADMIN")) {
+            return isOwningAdmin(authentication, gymId);
+        }
+        var clientId = profilesContextFacade.fetchClientIdByEmail(authentication.getName());
         return clientId != null && clientId > 0 && profilesContextFacade.hasAssociationWithGym(clientId, gymId);
+    }
+
+    private boolean isOwningAdmin(Authentication authentication, String gymId) {
+        if (!hasRole(authentication, "ROLE_ADMIN")) {
+            return false;
+        }
+        var adminUserId = iamContextFacade.fetchUserIdByUsername(authentication.getName()).orElse(0L);
+        return gymContextFacade.isGymOwnedByAdmin(gymId, adminUserId);
+    }
+
+    private record DateWindow(LocalDate start, LocalDate end) {
+        static DateWindow of(LocalDate from, LocalDate to) {
+            var end = to != null ? to : LocalDate.now();
+            var start = from != null ? from : end.minusDays(6);
+            return new DateWindow(start, end);
+        }
+
+        boolean isValid() {
+            return !end.isBefore(start) && ChronoUnit.DAYS.between(start, end) < MAX_RANGE_DAYS;
+        }
     }
 
     private static boolean hasRole(Authentication authentication, String role) {
