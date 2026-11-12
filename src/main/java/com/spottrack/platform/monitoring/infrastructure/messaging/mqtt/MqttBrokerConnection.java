@@ -36,7 +36,8 @@ class MqttBrokerConnection implements MqttCallbackExtended {
     private volatile LocalDateTime lastDisconnectedAt;
     private volatile String lastError;
 
-    MqttBrokerConnection(String brokerUrl, Map<String, IMqttMessageListener> subscriptions) throws MqttException {
+    MqttBrokerConnection(String brokerUrl, Map<String, IMqttMessageListener> subscriptions,
+                         MqttConnectionSettings settings) throws MqttException {
         this.brokerUrl = brokerUrl;
         this.subscriptions = subscriptions;
         this.client = new MqttClient(brokerUrl, "spottrack-backend-" + UUID.randomUUID(), new MemoryPersistence());
@@ -49,6 +50,7 @@ class MqttBrokerConnection implements MqttCallbackExtended {
         // Reconnection is driven by MqttBrokerPool, which also covers brokers
         // that were already down when the backend started.
         this.options.setAutomaticReconnect(false);
+        settings.applyTo(this.options, brokerUrl);
     }
 
     /** Connects if not connected yet. Never throws: a broker being down must not stop the backend. */
