@@ -29,6 +29,7 @@ public class MqttBrokerPool {
     private static final long RECONNECT_INTERVAL_SECONDS = 10;
 
     private final List<String> brokerUrls;
+    private final MqttConnectionSettings settings;
     private final Map<String, IMqttMessageListener> subscriptions = new ConcurrentHashMap<>();
     private final List<MqttBrokerConnection> connections = new ArrayList<>();
     private final ScheduledExecutorService reconnector = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -37,14 +38,15 @@ public class MqttBrokerPool {
         return thread;
     });
 
-    public MqttBrokerPool(List<String> brokerUrls) {
+    public MqttBrokerPool(List<String> brokerUrls, MqttConnectionSettings settings) {
+        this.settings = settings;
         this.brokerUrls = brokerUrls.stream().map(String::trim).filter(url -> !url.isEmpty()).distinct().toList();
     }
 
     @PostConstruct
     void start() throws MqttException {
         for (var url : brokerUrls) {
-            connections.add(new MqttBrokerConnection(url, subscriptions));
+            connections.add(new MqttBrokerConnection(url, subscriptions, settings));
         }
         log.info("MQTT subscribing to {} broker(s): {}", connections.size(), brokerUrls);
         connections.forEach(MqttBrokerConnection::ensureConnected);
