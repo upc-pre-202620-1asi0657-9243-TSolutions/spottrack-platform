@@ -30,18 +30,46 @@ resource "google_compute_instance" "broker" {
     access_config {}
   }
 
-  # Mosquitto 2 only listens on localhost unless a listener is configured.
+  # Config, certs and credentials come from metadata (see mqtt_security.tf);
+  # the startup script writes them to disk and (re)starts Mosquitto.
+  # Changing them needs a VM reset, since the script only runs on boot.
   metadata = {
-    startup-script = <<-EOT
+    mosquitto-conf  = local.mosquitto_conf
+    mosquitto-acl   = local.mqtt_acl
+    mosquitto-users = local.mqtt_passwd
+    mqtt-ca-cert    = tls_self_signed_cert.mqtt_ca.cert_pem
+    mqtt-tls-cert   = tls_locally_signed_cert.mqtt_server.cert_pem
+    mqtt-tls-key    = tls_private_key.mqtt_server.private_key_pem
+    startup-script  = <<-EOT
       #!/bin/bash
-      mkdir -p /home/chronos/mosquitto
-      cat > /home/chronos/mosquitto/mosquitto.conf <<CONF
-      listener 1883
-      allow_anonymous true
-      CONF
+      set -e
+      md() {
+        curl -sf -H "Metadata-Flavor: Google" \
+          "http://metadata.google.internal/computeMetadata/v1/instance/attributes/$1"
+      }
+      DIR=/home/chronos/mosquitto
+      rm -rf "$DIR"
+      mkdir -p "$DIR/certs"
+      md mosquitto-conf  > "$DIR/mosquitto.conf"
+      md mosquitto-acl   > "$DIR/acl"
+      md mosquitto-users > "$DIR/passwd"
+      md mqtt-ca-cert    > "$DIR/certs/ca.crt"
+      md mqtt-tls-cert   > "$DIR/certs/server.crt"
+      md mqtt-tls-key    > "$DIR/certs/server.key"
+
+      # Hash the plaintext passwords in place.
+      docker run --rm -v "$DIR:/mosquitto/config" eclipse-mosquitto:2 \
+        mosquitto_passwd -U /mosquitto/config/passwd
+
+      # The container runs as the mosquitto user (uid 1883).
+      chown -R 1883:1883 "$DIR"
+      chmod 700 "$DIR" "$DIR/certs"
+      chmod 600 "$DIR/passwd" "$DIR/acl" "$DIR/certs/server.key"
+
       docker rm -f mosquitto || true
-      docker run -d --name mosquitto --restart=always -p 1883:1883 \
-        -v /home/chronos/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro \
+      docker run -d --name mosquitto --restart=always -p 8883:8883 \
+        --log-opt max-size=10m --log-opt max-file=3 \
+        -v "$DIR:/mosquitto/config" \
         eclipse-mosquitto:2
     EOT
   }
@@ -62,8 +90,9 @@ resource "google_compute_firewall" "allow_mqtt" {
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["${local.name}-broker"]
 
+  # Only the TLS listener; 1883 is no longer published (DDR-12).
   allow {
     protocol = "tcp"
-    ports    = ["1883"]
+    ports    = ["8883"]
   }
 }

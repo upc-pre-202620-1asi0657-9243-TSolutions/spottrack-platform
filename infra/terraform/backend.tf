@@ -42,8 +42,10 @@ locals {
     DATABASE_NAME          = "spottrack"
     DATABASE_USER          = "spottrack"
     MQTT_HOST              = google_compute_address.broker_internal[0].address
-    MQTT_PORT              = "1883"
-    MQTT_BROKER_URLS       = join(",", [for a in google_compute_address.broker_internal : "tcp://${a.address}:1883"])
+    MQTT_PORT              = tostring(local.mqtt_tls_port)
+    MQTT_BROKER_URLS       = join(",", [for a in google_compute_address.broker_internal : "ssl://${a.address}:${local.mqtt_tls_port}"])
+    MQTT_USERNAME          = local.mqtt_backend_username
+    MQTT_CA_CERT           = base64encode(tls_self_signed_cert.mqtt_ca.cert_pem)
   }, var.extra_app_env)
 }
 

@@ -6,6 +6,8 @@ resource "random_password" "generated" {
     db-password = 32
     # HS512 needs at least 64 bytes.
     jwt-secret = 96
+    # Backend service account on the MQTT brokers.
+    mqtt-backend-password = 32
   }
   length  = each.value
   special = false
