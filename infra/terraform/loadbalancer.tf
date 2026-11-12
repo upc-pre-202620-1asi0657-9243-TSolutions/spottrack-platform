@@ -9,7 +9,7 @@ resource "google_compute_region_health_check" "mqtt" {
   region = var.region
 
   tcp_health_check {
-    port = 1883
+    port = local.mqtt_tls_port
   }
 }
 
@@ -36,7 +36,7 @@ resource "google_compute_forwarding_rule" "mqtt" {
   region                = var.region
   load_balancing_scheme = "EXTERNAL"
   ip_protocol           = "TCP"
-  ports                 = ["1883"]
+  ports                 = [tostring(local.mqtt_tls_port)]
   ip_address            = google_compute_address.mqtt.address
   backend_service       = google_compute_region_backend_service.mqtt.id
 }

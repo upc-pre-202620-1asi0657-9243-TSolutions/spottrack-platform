@@ -63,6 +63,7 @@ trap 'rm -f "$ENV_FILE"' EXIT
   echo
   echo "DATABASE_PASSWORD=$(secret db-password)"
   echo "JWT_SECRET=$(secret jwt-secret)"
+  echo "MQTT_PASSWORD=$(secret mqtt-backend-password)"
   echo "STRIPE_SECRET_API_KEY=$(secret stripe-api-key)"
   echo "STRIPE_WEBHOOK_SECRET=$(secret stripe-webhook-secret)"
 } > "$ENV_FILE"
