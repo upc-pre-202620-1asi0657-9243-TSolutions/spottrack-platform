@@ -49,7 +49,9 @@ public record MqttConnectionSettings(String username, String password, String ca
             var trustManagers = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             trustManagers.init(trustStore);
 
-            var context = SSLContext.getInstance("TLSv1.2");
+            // "TLS" negotiates the highest version both sides support (1.3 with Mosquitto 2);
+            // the broker already refuses anything below 1.2.
+            var context = SSLContext.getInstance("TLS");
             context.init(null, trustManagers.getTrustManagers(), null);
             return context.getSocketFactory();
         } catch (Exception e) {
