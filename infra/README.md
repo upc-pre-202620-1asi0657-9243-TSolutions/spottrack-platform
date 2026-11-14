@@ -10,7 +10,7 @@ Two environments, one GCP project (`spottrack-507400`). Every resource name star
 Each env has:
 - **Backend VM** (`spottrack-<env>-backend`): Caddy (HTTPS) → API, both in Docker.
 - **Cloud SQL MySQL 8.4** (`spottrack-<env>-mysql`, `db-f1-micro`). Only the backend VM's IP can connect, and only over TLS. Prod has daily backups and deletion protection.
-- **3 Mosquitto brokers** + a TCP load balancer for the emulator.
+- **3 Mosquitto brokers** + a TCP load balancer for the emulator. TLS only (port 8883), no anonymous clients (see [MQTT channel](#mqtt-channel)).
 - **Secrets** in Secret Manager (`spottrack-<env>-*`).
 
 Terraform builds the infra. GitHub Actions ships the app. They don't overlap.
@@ -61,6 +61,37 @@ Same thing for `prod`. After the first apply, push to `develop` (or re-run the w
   gcloud compute ssh spottrack-dev-backend --zone us-central1-a --tunnel-through-iap
   sudo docker logs -f spottrack
   ```
+
+## MQTT channel
+
+Brokers accept only TLS on **8883**. Port 1883 is closed. Every client logs in:
+
+| Client  | Username            | Can do                                         |
+|---------|---------------------|------------------------------------------------|
+| Sensor  | its `device_id`     | write `sensors/<device_id>/signal` and `/heartbeat` |
+| Backend | `spottrack-backend` | read `sensors/+/signal` and `sensors/+/heartbeat`   |
+
+- TLS uses a private CA made by Terraform (`mqtt_security.tf`). The broker certificate covers the balancer IP and the brokers' internal IPs.
+- Passwords and the TLS key live in Secret Manager (`spottrack-<env>-mqtt-broker-users`, `spottrack-<env>-mqtt-tls-key`). Only the broker VMs' service account reads them.
+- **Add a sensor:** put its `device_id` in `mqtt_device_ids` (`envs/<env>.tfvars`), run `./tf.sh <env> apply`, then reset the brokers (below).
+- **Broker config, ACL or credentials changed:** the startup script only runs on boot, so reset the brokers after the apply:
+  ```bash
+  gcloud compute instances reset spottrack-dev-broker-1 spottrack-dev-broker-2 spottrack-dev-broker-3 --zone us-central1-a
+  ```
+- **Emulator settings:**
+  ```bash
+  ./tf.sh dev output mqtt_lb_endpoint                    # ssl://<ip>:8883
+  ./tf.sh dev output -raw mqtt_ca_cert > mqtt-ca.crt
+  ./tf.sh dev output -json mqtt_device_credentials       # device_id -> password
+  ```
+- **Check that it rejects strangers** (QA-05):
+  ```bash
+  mosquitto_pub -h <lb-ip> -p 8883 --cafile mqtt-ca.crt -t sensors/x/signal -m hi                 # not authorised
+  mosquitto_pub -h <lb-ip> -p 8883 --cafile mqtt-ca.crt -u <device_id> -P wrong -t sensors/x/signal -m hi
+  mosquitto_pub -h <lb-ip> -p 8883 --cafile mqtt-ca.crt -u <device_id> -P <pw> -q 1 -V mqttv5 \
+    -t sensors/other-device/signal -m hi                                                            # PUBACK 135
+  ```
+  Broker side: `sudo docker logs mosquitto` on a broker VM shows the refused connections and `Denied PUBLISH`.
 
 ## Notes
 
