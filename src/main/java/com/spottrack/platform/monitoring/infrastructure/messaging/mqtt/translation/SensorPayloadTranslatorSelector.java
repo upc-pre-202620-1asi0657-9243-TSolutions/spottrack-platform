@@ -24,10 +24,14 @@ public class SensorPayloadTranslatorSelector {
     }
 
     /** A null or blank profile means the sensor uses SpotTrack's own format. */
-    public Result<SensorPayloadTranslator, ApplicationError> select(String payloadProfile) {
-        var profile = payloadProfile == null || payloadProfile.isBlank()
+    public static String resolveProfile(String payloadProfile) {
+        return payloadProfile == null || payloadProfile.isBlank()
                 ? DefaultSensorPayloadTranslator.PROFILE
                 : payloadProfile;
+    }
+
+    public Result<SensorPayloadTranslator, ApplicationError> select(String payloadProfile) {
+        var profile = resolveProfile(payloadProfile);
         var translator = translatorsByProfile.get(profile);
         if (translator == null) {
             return Result.failure(ApplicationError.validationError(

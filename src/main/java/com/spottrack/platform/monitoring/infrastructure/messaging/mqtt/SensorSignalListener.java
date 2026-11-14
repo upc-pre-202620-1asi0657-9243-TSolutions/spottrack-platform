@@ -6,7 +6,9 @@ import com.spottrack.platform.monitoring.domain.model.commands.MotionSensorCaptu
 import com.spottrack.platform.monitoring.domain.model.commands.RecordMotionSensorHeartbeatCommand;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorId;
 import com.spottrack.platform.monitoring.domain.repositories.MotionSensorRepository;
+import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.RejectedSensorSignalRegistry;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.SensorPayloadTranslatorSelector;
+import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import jakarta.annotation.PostConstruct;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -37,16 +39,19 @@ public class SensorSignalListener {
     private final SessionTrackerCommandService sessionTrackerCommandService;
     private final MotionSensorCommandService motionSensorCommandService;
     private final SensorPayloadTranslatorSelector payloadTranslatorSelector;
+    private final RejectedSensorSignalRegistry rejectedSignals;
 
     public SensorSignalListener(MqttBrokerPool mqttBrokerPool, MotionSensorRepository motionSensorRepository,
                                 SessionTrackerCommandService sessionTrackerCommandService,
                                 MotionSensorCommandService motionSensorCommandService,
-                                SensorPayloadTranslatorSelector payloadTranslatorSelector) {
+                                SensorPayloadTranslatorSelector payloadTranslatorSelector,
+                                RejectedSensorSignalRegistry rejectedSignals) {
         this.mqttBrokerPool = mqttBrokerPool;
         this.motionSensorRepository = motionSensorRepository;
         this.sessionTrackerCommandService = sessionTrackerCommandService;
         this.motionSensorCommandService = motionSensorCommandService;
         this.payloadTranslatorSelector = payloadTranslatorSelector;
+        this.rejectedSignals = rejectedSignals;
     }
 
     @PostConstruct
@@ -67,11 +72,12 @@ public class SensorSignalListener {
 
             recordHeartbeat(deviceId);
 
-            // TODO(TA-10): pass the sensor's payloadProfile once MotionSensor carries it; null selects the default format.
-            var translation = payloadTranslatorSelector.select(null)
+            // TODO(TA-10): use the sensor's payloadProfile once MotionSensor carries it; null selects the default format.
+            String payloadProfile = null;
+            var translation = payloadTranslatorSelector.select(payloadProfile)
                     .flatMap(translator -> translator.translate(new String(message.getPayload(), StandardCharsets.UTF_8)));
-            if (translation instanceof Result.Failure<?, ?> failure) {
-                log.warn("Discarded MQTT signal for device_id={}: {}", deviceId, failure.error());
+            if (translation instanceof Result.Failure<?, ApplicationError> failure) {
+                rejectedSignals.record(deviceId, payloadProfile, failure.error());
                 return;
             }
 

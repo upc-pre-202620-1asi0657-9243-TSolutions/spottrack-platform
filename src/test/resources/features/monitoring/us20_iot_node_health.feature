@@ -19,3 +19,10 @@ Feature: Edge IoT hardware status monitoring
     Given the motion sensor of "Rowing Machine 01" is "Disconnected"
     When the IoT node restores its network connection
     Then the motion sensor is marked as "Online"
+
+  Scenario: Rejected sensor signal is recorded
+    Given the motion sensor of "Rowing Machine 01" uses the "default" payload profile
+    When the motion sensor publishes a payload that no translator can interpret
+    Then the signal is discarded
+    And the rejection is logged with the sensor's device id and payload profile
+    And the rejected signals counter of the "default" profile goes up in the network health
