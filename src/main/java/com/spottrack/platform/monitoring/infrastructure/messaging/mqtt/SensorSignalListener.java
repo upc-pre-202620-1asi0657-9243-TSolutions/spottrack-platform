@@ -1,12 +1,12 @@
 package com.spottrack.platform.monitoring.infrastructure.messaging.mqtt;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spottrack.platform.monitoring.application.commandServices.MotionSensorCommandService;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
 import com.spottrack.platform.monitoring.domain.model.commands.MotionSensorCaptureCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.RecordMotionSensorHeartbeatCommand;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorId;
 import com.spottrack.platform.monitoring.domain.repositories.MotionSensorRepository;
+import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.SensorPayloadTranslatorSelector;
 import com.spottrack.platform.shared.application.result.Result;
 import jakarta.annotation.PostConstruct;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 
 /**
@@ -35,15 +36,17 @@ public class SensorSignalListener {
     private final MotionSensorRepository motionSensorRepository;
     private final SessionTrackerCommandService sessionTrackerCommandService;
     private final MotionSensorCommandService motionSensorCommandService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SensorPayloadTranslatorSelector payloadTranslatorSelector;
 
     public SensorSignalListener(MqttBrokerPool mqttBrokerPool, MotionSensorRepository motionSensorRepository,
                                 SessionTrackerCommandService sessionTrackerCommandService,
-                                MotionSensorCommandService motionSensorCommandService) {
+                                MotionSensorCommandService motionSensorCommandService,
+                                SensorPayloadTranslatorSelector payloadTranslatorSelector) {
         this.mqttBrokerPool = mqttBrokerPool;
         this.motionSensorRepository = motionSensorRepository;
         this.sessionTrackerCommandService = sessionTrackerCommandService;
         this.motionSensorCommandService = motionSensorCommandService;
+        this.payloadTranslatorSelector = payloadTranslatorSelector;
     }
 
     @PostConstruct
@@ -54,8 +57,7 @@ public class SensorSignalListener {
 
     private void handleSignal(String topic, MqttMessage message) {
         try {
-            var signal = objectMapper.readValue(message.getPayload(), SensorSignalMessage.class);
-            var deviceId = signal.deviceId() != null ? signal.deviceId() : deviceIdFromTopic(topic);
+            var deviceId = deviceIdFromTopic(topic);
             var sensor = motionSensorRepository.findByMotionSensorId(new MotionSensorId(deviceId));
 
             if (sensor.isEmpty()) {
@@ -64,6 +66,14 @@ public class SensorSignalListener {
             }
 
             recordHeartbeat(deviceId);
+
+            // TODO(TA-10): pass the sensor's payloadProfile once MotionSensor carries it; null selects the default format.
+            var translation = payloadTranslatorSelector.select(null)
+                    .flatMap(translator -> translator.translate(new String(message.getPayload(), StandardCharsets.UTF_8)));
+            if (translation instanceof Result.Failure<?, ?> failure) {
+                log.warn("Discarded MQTT signal for device_id={}: {}", deviceId, failure.error());
+                return;
+            }
 
             var command = new MotionSensorCaptureCommand(sensor.get().getEquipmentId(), true);
             var result = sessionTrackerCommandService.handle(command);
