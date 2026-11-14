@@ -72,7 +72,7 @@ public class Membership extends AbstractDomainAggregateRoot<Membership> {
                 command.clientId(),
                 command.membershipTier(),
                 command.price(),
-                new MembershipPeriod(command.startDate(), command.endDate()),
+                MembershipPeriod.startingNew(command.startDate(), command.endDate()),
                 MembershipStatus.PENDING_ACTIVATION,
                 false,
                 null);
@@ -174,7 +174,7 @@ public class Membership extends AbstractDomainAggregateRoot<Membership> {
         if (this.status != MembershipStatus.SUSPENDED) {
             throw new IllegalStateException("membership.error.renew.notSuspended");
         }
-        this.membershipPeriod = new MembershipPeriod(command.startDate(), command.endDate());
+        this.membershipPeriod = MembershipPeriod.startingNew(command.startDate(), command.endDate());
         this.status = MembershipStatus.ACTIVE;
         this.cancelAtPeriodEnd = false;
         registerDomainEvent(GymMembershipRenewedEvent.from(this));
