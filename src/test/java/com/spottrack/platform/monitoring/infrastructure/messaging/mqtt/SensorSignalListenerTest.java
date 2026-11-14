@@ -8,6 +8,7 @@ import com.spottrack.platform.monitoring.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorId;
 import com.spottrack.platform.monitoring.domain.repositories.MotionSensorRepository;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.DefaultSensorPayloadTranslator;
+import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.RejectedSensorSignalRegistry;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.SensorPayloadTranslatorSelector;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -37,6 +39,7 @@ class SensorSignalListenerTest {
     private MotionSensorRepository motionSensorRepository;
     private SessionTrackerCommandService sessionTrackerCommandService;
     private MotionSensorCommandService motionSensorCommandService;
+    private RejectedSensorSignalRegistry rejectedSignals;
     private IMqttMessageListener signalHandler;
 
     @BeforeEach
@@ -48,8 +51,10 @@ class SensorSignalListenerTest {
         var selector = new SensorPayloadTranslatorSelector(
                 List.of(new DefaultSensorPayloadTranslator(JsonMapper.builder().build())));
 
+        rejectedSignals = new RejectedSensorSignalRegistry();
+
         new SensorSignalListener(mqttBrokerPool, motionSensorRepository, sessionTrackerCommandService,
-                motionSensorCommandService, selector).subscribe();
+                motionSensorCommandService, selector, rejectedSignals).subscribe();
 
         var captor = ArgumentCaptor.forClass(IMqttMessageListener.class);
         verify(mqttBrokerPool).subscribe(eq("sensors/+/signal"), captor.capture());
@@ -81,6 +86,37 @@ class SensorSignalListenerTest {
         send("not a json");
 
         verify(sessionTrackerCommandService, never()).handle(any(MotionSensorCaptureCommand.class));
+    }
+
+    @Test
+    void invalidPayloadIsRecordedWithItsDeviceAndProfile() throws Exception {
+        givenRegisteredSensor("eq-7");
+
+        send("not a json");
+
+        var stats = rejectedSignals.stats();
+        assertEquals(1, stats.total());
+        assertEquals(1L, stats.byProfile().get("default"));
+        assertEquals("dev-1", stats.lastRejected().deviceId());
+        assertEquals("default", stats.lastRejected().payloadProfile());
+    }
+
+    @Test
+    void validPayloadIsNotCountedAsRejected() throws Exception {
+        givenRegisteredSensor("eq-7");
+
+        send(VALID_PAYLOAD);
+
+        assertEquals(0, rejectedSignals.stats().total());
+    }
+
+    @Test
+    void signalOfUnknownSensorIsNotCountedAsRejected() throws Exception {
+        when(motionSensorRepository.findByMotionSensorId(new MotionSensorId("dev-1"))).thenReturn(Optional.empty());
+
+        send("not a json");
+
+        assertEquals(0, rejectedSignals.stats().total());
     }
 
     private void givenRegisteredSensor(String equipmentId) {
