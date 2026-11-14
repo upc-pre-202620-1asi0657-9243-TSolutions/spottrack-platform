@@ -30,32 +30,56 @@ resource "google_compute_instance" "broker" {
     access_config {}
   }
 
-  # Config, certs and credentials come from metadata (see mqtt_security.tf);
-  # the startup script writes them to disk and (re)starts Mosquitto.
-  # Changing them needs a VM reset, since the script only runs on boot.
+  # Reads the broker secrets (passwords, TLS key) from Secret Manager on boot.
+  service_account {
+    email  = google_service_account.broker.email
+    scopes = ["cloud-platform"]
+  }
+  allow_stopping_for_update = true
+
+  # Public config and certs come from metadata; passwords and the TLS key come
+  # from Secret Manager (see mqtt_security.tf), so they never show up in the
+  # instance metadata. The startup script writes them to disk and (re)starts
+  # Mosquitto. Changing them needs a VM reset, since the script only runs on boot.
   metadata = {
-    mosquitto-conf  = local.mosquitto_conf
-    mosquitto-acl   = local.mqtt_acl
-    mosquitto-users = local.mqtt_passwd
-    mqtt-ca-cert    = tls_self_signed_cert.mqtt_ca.cert_pem
-    mqtt-tls-cert   = tls_locally_signed_cert.mqtt_server.cert_pem
-    mqtt-tls-key    = tls_private_key.mqtt_server.private_key_pem
-    startup-script  = <<-EOT
+    mosquitto-conf = local.mosquitto_conf
+    mosquitto-acl  = local.mqtt_acl
+    mqtt-ca-cert   = tls_self_signed_cert.mqtt_ca.cert_pem
+    mqtt-tls-cert  = tls_locally_signed_cert.mqtt_server.cert_pem
+    startup-script = <<-EOT
       #!/bin/bash
-      set -e
+      set -eo pipefail
       md() {
         curl -sf -H "Metadata-Flavor: Google" \
-          "http://metadata.google.internal/computeMetadata/v1/instance/attributes/$1"
+          "http://metadata.google.internal/computeMetadata/v1/$1"
+      }
+      # COS has no gcloud: call the Secret Manager API with the VM's token.
+      secret() {
+        local token
+        token=$(md instance/service-accounts/default/token \
+          | grep -o '"access_token": *"[^"]*"' | cut -d'"' -f4)
+        curl -sf -H "Authorization: Bearer $token" \
+          "https://secretmanager.googleapis.com/v1/projects/${var.project_id}/secrets/${local.name}-$1/versions/latest:access" \
+          | grep -o '"data": *"[^"]*"' | cut -d'"' -f4 | base64 -d
+      }
+      # Retried: on first boot the IAM grant can take a moment to apply.
+      fetch_secret() {
+        for _ in $(seq 1 30); do
+          if secret "$1" > "$2" && [ -s "$2" ]; then return 0; fi
+          sleep 10
+        done
+        echo "Could not read secret $1" >&2
+        return 1
       }
       DIR=/home/chronos/mosquitto
       rm -rf "$DIR"
       mkdir -p "$DIR/certs"
-      md mosquitto-conf  > "$DIR/mosquitto.conf"
-      md mosquitto-acl   > "$DIR/acl"
-      md mosquitto-users > "$DIR/passwd"
-      md mqtt-ca-cert    > "$DIR/certs/ca.crt"
-      md mqtt-tls-cert   > "$DIR/certs/server.crt"
-      md mqtt-tls-key    > "$DIR/certs/server.key"
+      md instance/attributes/mosquitto-conf > "$DIR/mosquitto.conf"
+      md instance/attributes/mosquitto-acl  > "$DIR/acl"
+      md instance/attributes/mqtt-ca-cert   > "$DIR/certs/ca.crt"
+      md instance/attributes/mqtt-tls-cert  > "$DIR/certs/server.crt"
+      fetch_secret mqtt-broker-users "$DIR/passwd"
+      fetch_secret mqtt-tls-key      "$DIR/certs/server.key"
 
       # Hash the plaintext passwords in place.
       docker run --rm -v "$DIR:/mosquitto/config" eclipse-mosquitto:2 \
@@ -73,6 +97,11 @@ resource "google_compute_instance" "broker" {
         eclipse-mosquitto:2
     EOT
   }
+
+  depends_on = [
+    google_secret_manager_secret_iam_member.broker,
+    google_secret_manager_secret_version.mqtt_broker,
+  ]
 }
 
 # Unmanaged group: just a list of the 3 broker VMs for the load balancer to use.
