@@ -105,3 +105,43 @@ locals {
     log_timestamp_format %Y-%m-%dT%H:%M:%S
   CONF
 }
+
+# ---------- Broker secrets (Secret Manager, not instance metadata) ----------
+# Anyone allowed to read the VMs' metadata would otherwise see every password
+# and the TLS private key. Each broker reads them on boot with its own service
+# account, which can read only these two secrets.
+
+resource "google_service_account" "broker" {
+  account_id   = "${local.name}-broker"
+  display_name = "SpotTrack ${var.env} MQTT broker VMs"
+}
+
+locals {
+  mqtt_broker_secrets = {
+    # Plaintext "user:password" lines, hashed by each broker on boot.
+    mqtt-broker-users = local.mqtt_passwd
+    mqtt-tls-key      = tls_private_key.mqtt_server.private_key_pem
+  }
+}
+
+resource "google_secret_manager_secret" "mqtt_broker" {
+  for_each  = toset(keys(local.mqtt_broker_secrets))
+  secret_id = "${local.name}-${each.value}"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "mqtt_broker" {
+  for_each    = google_secret_manager_secret.mqtt_broker
+  secret      = each.value.id
+  secret_data = local.mqtt_broker_secrets[each.key]
+}
+
+resource "google_secret_manager_secret_iam_member" "broker" {
+  for_each  = google_secret_manager_secret.mqtt_broker
+  secret_id = each.value.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = google_service_account.broker.member
+}
