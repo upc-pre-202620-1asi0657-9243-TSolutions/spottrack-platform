@@ -3,7 +3,8 @@
 
 resource "random_password" "generated" {
   for_each = {
-    db-password = 32
+    db-password         = 32
+    mysql-root-password = 32
     # HS512 needs at least 64 bytes.
     jwt-secret = 96
     # Backend service account on the MQTT brokers.
