@@ -148,7 +148,7 @@ Nothing here runs `apply` for you. Dev first, then prod.
    gcloud compute ssh spottrack-<env>-broker-1 --zone us-central1-a --tunnel-through-iap -- 'sudo journalctl -u google-startup-scripts --no-pager | tail -20'
    ```
    Only then reset broker-2, then broker-3. The two other brokers keep serving sensors meanwhile; resetting all three together takes MQTT down.
-3. Set `pairing_provisioner_mode = "dynsec"`, `apply`, and redeploy the backend so the new env reaches the container (run the deploy workflow, or `sudo /usr/local/bin/deploy.sh`-equivalent on the VM, or reset the backend VM). If the config is incomplete the app **refuses to start** with `pairing.provisioner.mode=dynsec but the configuration is incomplete: ...` (the previous container is restored by `deploy.sh`).
+3. Set `pairing_provisioner_mode = "dynsec"`, `apply`, and redeploy the backend so the new env reaches the container: run the deploy workflow (it runs `scripts/deploy.sh` on the VM, which reads the new `app-env` metadata and the admin secret), or reset the backend VM (the startup script runs the `deploy-script` metadata). If the config is incomplete the app **refuses to start** with `pairing.provisioner.mode=dynsec but the configuration is incomplete: ...` (the previous container is restored by `deploy.sh`).
 4. Verify (below).
 
 Sensors listed in `mqtt_device_ids` keep working: they are created in the plugin with the `sensor` role if absent. A legacy sensor revoked later is **recreated on the next broker boot** while it is still listed; remove it from `mqtt_device_ids` once it is paired.
