@@ -111,6 +111,26 @@ class SensorSignalListenerTest {
     }
 
     @Test
+    void payloadWithoutSchemaVersionDefaultsToVersion1AndExecutesDomainCommand() throws Exception {
+        givenRegisteredSensor("eq-7");
+
+        send("{\"deviceId\":\"dev-1\",\"signalType\":\"MOTION\",\"durationMs\":950}");
+
+        verify(sessionTrackerCommandService).handle(new MotionSensorCaptureCommand(new EquipmentId("eq-7"), true));
+        assertEquals(0, rejectedSignals.stats().total());
+    }
+
+    @Test
+    void payloadWithExtraUnknownFieldsExecutesDomainCommand() throws Exception {
+        givenRegisteredSensor("eq-7");
+
+        send("{\"deviceId\":\"dev-1\",\"signalType\":\"MOTION\",\"durationMs\":950,\"battery\":98,\"unknownAttr\":\"val\"}");
+
+        verify(sessionTrackerCommandService).handle(new MotionSensorCaptureCommand(new EquipmentId("eq-7"), true));
+        assertEquals(0, rejectedSignals.stats().total());
+    }
+
+    @Test
     void signalOfUnknownSensorIsNotCountedAsRejected() throws Exception {
         when(motionSensorRepository.findByMotionSensorId(new MotionSensorId("dev-1"))).thenReturn(Optional.empty());
 
