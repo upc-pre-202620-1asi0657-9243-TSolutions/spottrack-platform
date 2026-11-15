@@ -1,6 +1,7 @@
 package com.spottrack.platform.monitoring.application.internal.commandcervices;
 
 import com.spottrack.platform.monitoring.application.commandServices.MotionSensorCommandService;
+import com.spottrack.platform.monitoring.application.ports.PayloadProfileCatalog;
 import com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor;
 import com.spottrack.platform.monitoring.domain.model.commands.MarkMotionSensorDisconnectedCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.MarkMotionSensorReconnectedCommand;
@@ -19,15 +20,23 @@ import org.springframework.transaction.annotation.Transactional;
 public class MotionSensorCommandServiceImpl implements MotionSensorCommandService {
     private final MotionSensorRepository motionSensorRepository;
     private final GymContextFacade gymContextFacade;
+    private final PayloadProfileCatalog payloadProfileCatalog;
 
-    public MotionSensorCommandServiceImpl(MotionSensorRepository motionSensorRepository, GymContextFacade gymContextFacade) {
+    public MotionSensorCommandServiceImpl(MotionSensorRepository motionSensorRepository, GymContextFacade gymContextFacade,
+                                          PayloadProfileCatalog payloadProfileCatalog) {
         this.motionSensorRepository = motionSensorRepository;
         this.gymContextFacade = gymContextFacade;
+        this.payloadProfileCatalog = payloadProfileCatalog;
     }
 
     @Override
     public Result<MotionSensor, ApplicationError> handle(RegisterMotionSensorCommand command) {
         try {
+            if (command.payloadProfile() != null && !payloadProfileCatalog.isSupported(command.payloadProfile())) {
+                return Result.failure(ApplicationError.validationError(
+                        "payloadProfile",
+                        "Unknown sensor payload profile '%s'".formatted(command.payloadProfile())));
+            }
             if (gymContextFacade.findEquipmentById(command.equipmentId()).isEmpty()) {
                 return Result.failure(ApplicationError.notFound("Equipment", command.equipmentId()));
             }

@@ -1,5 +1,6 @@
 package com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation;
 
+import com.spottrack.platform.monitoring.application.ports.PayloadProfileCatalog;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import org.springframework.stereotype.Component;
@@ -9,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class SensorPayloadTranslatorSelector {
+public class SensorPayloadTranslatorSelector implements PayloadProfileCatalog {
 
     private final Map<String, SensorPayloadTranslator> translatorsByProfile = new HashMap<>();
 
@@ -28,6 +29,11 @@ public class SensorPayloadTranslatorSelector {
         return payloadProfile == null || payloadProfile.isBlank()
                 ? DefaultSensorPayloadTranslator.PROFILE
                 : payloadProfile;
+    }
+
+    @Override
+    public boolean isSupported(String profile) {
+        return translatorsByProfile.containsKey(resolveProfile(profile));
     }
 
     public Result<SensorPayloadTranslator, ApplicationError> select(String payloadProfile) {
