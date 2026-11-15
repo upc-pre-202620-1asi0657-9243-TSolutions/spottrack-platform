@@ -1,9 +1,12 @@
 package com.spottrack.platform.monitoring.infrastructure.messaging.mqtt;
 
 import com.spottrack.platform.monitoring.application.commandServices.MotionSensorCommandService;
+import com.spottrack.platform.monitoring.application.commandServices.SensorPairingCommandService;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
 import com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor;
+import com.spottrack.platform.monitoring.domain.model.commands.MarkSensorPairingUsedCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.MotionSensorCaptureCommand;
+import com.spottrack.platform.monitoring.domain.model.commands.RecordMotionSensorHeartbeatCommand;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorId;
 import com.spottrack.platform.monitoring.domain.repositories.MotionSensorRepository;
@@ -12,6 +15,7 @@ import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translati
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.SensorPayloadTranslator;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.SensorPayloadTranslatorSelector;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.TelemetrySignal;
+import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -45,7 +49,9 @@ class SensorSignalListenerTest {
     private MotionSensorCommandService motionSensorCommandService;
     private SensorPayloadTranslator altTranslator;
     private RejectedSensorSignalRegistry rejectedSignals;
+    private SensorPairingCommandService sensorPairingCommandService;
     private IMqttMessageListener signalHandler;
+    private IMqttMessageListener heartbeatHandler;
 
     @BeforeEach
     void setUp() {
@@ -53,6 +59,7 @@ class SensorSignalListenerTest {
         motionSensorRepository = mock(MotionSensorRepository.class);
         sessionTrackerCommandService = mock(SessionTrackerCommandService.class);
         motionSensorCommandService = mock(MotionSensorCommandService.class);
+        sensorPairingCommandService = mock(SensorPairingCommandService.class);
         altTranslator = mock(SensorPayloadTranslator.class);
         when(altTranslator.profile()).thenReturn("alt");
         when(altTranslator.translate(any())).thenReturn(Result.success(new TelemetrySignal("dev-1", "MOTION", 800, null)));
@@ -62,11 +69,15 @@ class SensorSignalListenerTest {
         rejectedSignals = new RejectedSensorSignalRegistry();
 
         new SensorSignalListener(mqttBrokerPool, motionSensorRepository, sessionTrackerCommandService,
-                motionSensorCommandService, selector, rejectedSignals).subscribe();
+                motionSensorCommandService, selector, rejectedSignals, sensorPairingCommandService).subscribe();
 
         var captor = ArgumentCaptor.forClass(IMqttMessageListener.class);
         verify(mqttBrokerPool).subscribe(eq("sensors/+/signal"), captor.capture());
         signalHandler = captor.getValue();
+
+        var heartbeatCaptor = ArgumentCaptor.forClass(IMqttMessageListener.class);
+        verify(mqttBrokerPool).subscribe(eq("sensors/+/heartbeat"), heartbeatCaptor.capture());
+        heartbeatHandler = heartbeatCaptor.getValue();
     }
 
     @Test
@@ -186,6 +197,37 @@ class SensorSignalListenerTest {
         send("not a json");
 
         assertEquals(0, rejectedSignals.stats().total());
+    }
+
+    @Test
+    void heartbeatMarksThePairingOfTheDeviceAsUsed() throws Exception {
+        when(motionSensorCommandService.handle(any(RecordMotionSensorHeartbeatCommand.class)))
+                .thenReturn(Result.success(null));
+
+        heartbeatHandler.messageArrived("sensors/dev-1/heartbeat", new MqttMessage(new byte[0]));
+
+        verify(sensorPairingCommandService).handle(new MarkSensorPairingUsedCommand(new MotionSensorId("dev-1")));
+    }
+
+    @Test
+    void ignoredHeartbeatDoesNotTouchThePairing() throws Exception {
+        when(motionSensorCommandService.handle(any(RecordMotionSensorHeartbeatCommand.class)))
+                .thenReturn(Result.failure(ApplicationError.notFound("MotionSensor", "dev-1")));
+
+        heartbeatHandler.messageArrived("sensors/dev-1/heartbeat", new MqttMessage(new byte[0]));
+
+        verify(sensorPairingCommandService, never()).handle(any(MarkSensorPairingUsedCommand.class));
+    }
+
+    @Test
+    void motionSignalAlsoMarksThePairingAsUsed() throws Exception {
+        givenRegisteredSensor("eq-7");
+        when(motionSensorCommandService.handle(any(RecordMotionSensorHeartbeatCommand.class)))
+                .thenReturn(Result.success(null));
+
+        send(VALID_PAYLOAD);
+
+        verify(sensorPairingCommandService).handle(new MarkSensorPairingUsedCommand(new MotionSensorId("dev-1")));
     }
 
     private void givenRegisteredSensor(String equipmentId) {

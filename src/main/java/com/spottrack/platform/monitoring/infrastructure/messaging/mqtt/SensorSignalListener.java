@@ -1,7 +1,9 @@
 package com.spottrack.platform.monitoring.infrastructure.messaging.mqtt;
 
 import com.spottrack.platform.monitoring.application.commandServices.MotionSensorCommandService;
+import com.spottrack.platform.monitoring.application.commandServices.SensorPairingCommandService;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
+import com.spottrack.platform.monitoring.domain.model.commands.MarkSensorPairingUsedCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.MotionSensorCaptureCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.RecordMotionSensorHeartbeatCommand;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorId;
@@ -40,18 +42,21 @@ public class SensorSignalListener {
     private final MotionSensorCommandService motionSensorCommandService;
     private final SensorPayloadTranslatorSelector payloadTranslatorSelector;
     private final RejectedSensorSignalRegistry rejectedSignals;
+    private final SensorPairingCommandService sensorPairingCommandService;
 
     public SensorSignalListener(MqttBrokerPool mqttBrokerPool, MotionSensorRepository motionSensorRepository,
                                 SessionTrackerCommandService sessionTrackerCommandService,
                                 MotionSensorCommandService motionSensorCommandService,
                                 SensorPayloadTranslatorSelector payloadTranslatorSelector,
-                                RejectedSensorSignalRegistry rejectedSignals) {
+                                RejectedSensorSignalRegistry rejectedSignals,
+                                SensorPairingCommandService sensorPairingCommandService) {
         this.mqttBrokerPool = mqttBrokerPool;
         this.motionSensorRepository = motionSensorRepository;
         this.sessionTrackerCommandService = sessionTrackerCommandService;
         this.motionSensorCommandService = motionSensorCommandService;
         this.payloadTranslatorSelector = payloadTranslatorSelector;
         this.rejectedSignals = rejectedSignals;
+        this.sensorPairingCommandService = sensorPairingCommandService;
     }
 
     @PostConstruct
@@ -105,6 +110,11 @@ public class SensorSignalListener {
                 new RecordMotionSensorHeartbeatCommand(new MotionSensorId(deviceId), LocalDateTime.now()));
         if (result instanceof Result.Failure<?, ?> failure) {
             log.debug("Heartbeat ignored for device_id={}: {}", deviceId, failure.error());
+            return;
+        }
+        var pairing = sensorPairingCommandService.handle(new MarkSensorPairingUsedCommand(new MotionSensorId(deviceId)));
+        if (pairing instanceof Result.Success<?, ?>) {
+            log.info("Sensor pairing used by its first heartbeat, device_id={}", deviceId);
         }
     }
 
