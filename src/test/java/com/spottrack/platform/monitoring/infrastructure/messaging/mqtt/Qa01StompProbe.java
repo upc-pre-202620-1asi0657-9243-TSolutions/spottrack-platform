@@ -1,10 +1,13 @@
 package com.spottrack.platform.monitoring.infrastructure.messaging.mqtt;
 
-import org.springframework.messaging.converter.StringMessageConverter;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.converter.AbstractMessageConverter;
+import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
@@ -35,14 +38,33 @@ final class Qa01StompProbe implements AutoCloseable {
         scheduler.setThreadNamePrefix("qa01-stomp-");
         scheduler.initialize();
         var client = new WebSocketStompClient(new StandardWebSocketClient());
-        client.setMessageConverter(new StringMessageConverter());
+        client.setMessageConverter(new AbstractMessageConverter(MimeTypeUtils.ALL) {
+            @Override
+            protected boolean supports(Class<?> clazz) {
+                return byte[].class == clazz;
+            }
+
+            @Override
+            protected Object convertFromInternal(Message<?> message, Class<?> targetClass, Object hint) {
+                return message.getPayload();
+            }
+        });
         client.setTaskScheduler(scheduler);
 
         var handshake = new WebSocketHttpHeaders();
         handshake.add("Authorization", "Bearer " + jwt);
         var webSocketUrl = apiBaseUrl.replaceFirst("^http", "ws").replaceAll("/+$", "") + "/ws/websocket";
-        var session = client.connectAsync(webSocketUrl, handshake, new StompHeaders(), new StompSessionHandlerAdapter() { })
-                .get(10, TimeUnit.SECONDS);
+        var session = client.connectAsync(webSocketUrl, handshake, new StompHeaders(), new StompSessionHandlerAdapter() {
+                    @Override
+                    public void handleException(StompSession s, StompCommand c, StompHeaders h, byte[] p, Throwable e) {
+                        System.err.println("STOMP: frame error: " + e);
+                    }
+
+                    @Override
+                    public void handleTransportError(StompSession s, Throwable e) {
+                        System.err.println("STOMP: transport error: " + e);
+                    }
+                }).get(10, TimeUnit.SECONDS);
         session.setAutoReceipt(true);
 
         var probe = new Qa01StompProbe(client, scheduler, session);
@@ -51,7 +73,7 @@ final class Qa01StompProbe implements AutoCloseable {
                 new StompSessionHandlerAdapter() {
                     @Override
                     public Type getPayloadType(StompHeaders headers) {
-                        return String.class;
+                        return byte[].class;
                     }
 
                     @Override
