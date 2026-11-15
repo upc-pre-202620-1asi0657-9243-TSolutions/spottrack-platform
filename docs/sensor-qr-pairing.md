@@ -8,10 +8,10 @@ Este documento describe el flujo completo. La implementación se entrega en dos 
 
 | PR | Contenido |
 |---|---|
-| **PR 1** (este) | Endpoint de emisión, agregado `SensorPairing`, QR, expiración, marca `USED` al primer heartbeat. El aprovisionamiento en los brokers es un **no-op** (`pairing.provisioner.mode=noop`): solo registra en el log, sin el secreto. |
-| **PR 2** | Adaptador real de aprovisionamiento en los 3 brokers (plugin `dynamic-security` de Mosquitto) y cambios en `infra/terraform`. |
+| **PR 1** | Endpoint de emisión, agregado `SensorPairing`, QR, expiración, marca `USED` al primer heartbeat. El aprovisionamiento en los brokers es un **no-op** (`pairing.provisioner.mode=noop`): solo registra en el log, sin el secreto. |
+| **PR 2** (este) | Adaptador real de aprovisionamiento en los 3 brokers (plugin `dynamic-security` de Mosquitto), script de arranque de los brokers y cambios en `infra/terraform`. Procedimiento de activación en [`infra/README.md`](../infra/README.md#activating-pairing-dynsec). |
 
-> Hasta el PR 2 el QR que se emite **no es utilizable contra los brokers reales**: la credencial no se crea en ellos. Los brokers siguen aceptando solo los usuarios definidos en `mqtt_device_ids` de Terraform.
+> Con `pairing.provisioner.mode=noop` (el valor por defecto) el QR que se emite **no es utilizable contra los brokers reales**: la credencial no se crea en ellos. Para que lo sea hacen falta brokers con `mqtt_auth_mode=dynsec` **y** `pairing.provisioner.mode=dynsec`; la app falla al arrancar si se pide el segundo sin la configuración completa.
 
 ## 2. Diagrama de secuencia
 
@@ -121,12 +121,49 @@ El sensor se comprueba antes que la configuración: un sensor inexistente respon
 | Propiedad | Variable de entorno | Por defecto | Descripción |
 |---|---|---|---|
 | `pairing.ttl` | `PAIRING_TTL` | `15m` | Validez de un QR **sin escanear** (formato de duración de Spring: `15m`, `PT15M`). Debe ser positiva. |
-| `pairing.provisioner.mode` | `PAIRING_PROVISIONER_MODE` | `noop` | `noop`: no toca los brokers, solo registra el `deviceId`. Otros valores no activan ningún aprovisionador (el adaptador real llega en el PR 2). |
+| `pairing.provisioner.mode` | `PAIRING_PROVISIONER_MODE` | `noop` | `noop`: no toca los brokers, solo registra el `deviceId`. `dynsec`: crea/borra la cuenta del sensor en **cada** broker con el plugin `dynamic-security` (ver 5.1). Con `dynsec` la aplicación **no arranca** si falta algún dato (ver 5.1). |
 | `pairing.expiry-check-interval-ms` | `PAIRING_EXPIRY_CHECK_INTERVAL_MS` | `60000` | Cada cuánto el proceso programado busca pairing vencidos; la expiración real puede retrasarse hasta ese intervalo. |
 | `mqtt.public-endpoint` | `MQTT_PUBLIC_ENDPOINT` | `localhost:8883` (dev) / vacío (prod) | `host:puerto` TLS del balanceador visto por los dispositivos. Puerto entre 1 y 65535. |
 | `mqtt.ca-sha256` | `MQTT_CA_SHA256` | 64 ceros (dev) / vacío (prod) | SHA-256 de la CA en hexadecimal; se aceptan mayúsculas y los `:` de `openssl`, y se normaliza a minúsculas sin `:`. Debe tener 64 caracteres hexadecimales. |
 
 En `prod` los dos últimos no tienen valor por defecto: la aplicación arranca, pero la emisión responde `422` hasta que se configuren. El valor de dev (ceros) no corresponde a ninguna CA real, así que un QR emitido con él no pasa la comprobación de `caSha256` del dispositivo.
+
+Si `mqtt.ca-sha256` está vacío y `mqtt.ca-cert` (PEM o base64 de un PEM) es válido, la aplicación **deriva** el SHA-256 del certificado DER de la CA. En `prod` basta con `MQTT_CA_CERT`; Terraform ya lo pasa. Un certificado inválido solo deja el valor vacío (aviso en el log) salvo con `mode=dynsec`, donde es un error de arranque.
+
+### 5.1 Aprovisionador `dynsec`
+
+| Propiedad | Variable de entorno | Por defecto | Descripción |
+|---|---|---|---|
+| `mqtt.dynsec.admin-username` | `MQTT_DYNSEC_ADMIN_USERNAME` | `spottrack-dynsec-admin` | Cuenta admin del plugin, **distinta** de `mqtt.username`. Solo puede publicar/leer en `$CONTROL/dynamic-security/#`. |
+| `mqtt.dynsec.admin-password` | `MQTT_DYNSEC_ADMIN_PASSWORD` | vacío | Secreto `mqtt-dynsec-admin-password` de Secret Manager (lo escribe `deploy.sh`). Nunca se registra en logs. |
+| `pairing.dynsec.sensor-role` | `PAIRING_DYNSEC_SENSOR_ROLE` | `sensor` | Rol que se asigna a cada dispositivo. |
+| `pairing.dynsec.connect-timeout` / `response-timeout` | `PAIRING_DYNSEC_CONNECT_TIMEOUT` / `PAIRING_DYNSEC_RESPONSE_TIMEOUT` | `3s` / `3s` | Conexión TLS corta por broker y espera de la respuesta. |
+| `pairing.dynsec.max-attempts` | `PAIRING_DYNSEC_MAX_ATTEMPTS` | `2` | Intentos por broker, **solo** ante errores de transporte (no ante una respuesta de error del broker). |
+| `pairing.dynsec.total-timeout` | `PAIRING_DYNSEC_TOTAL_TIMEOUT` | `15s` | Plazo total de una operación contra los 3 brokers, reintentos incluidos. |
+
+Con `mode=dynsec` la aplicación falla al iniciar, con un mensaje que lista todos los problemas, si: `mqtt.broker-urls` está vacío o alguna URL no es `ssl://`; falta el usuario o la contraseña del admin; `mqtt.ca-cert` falta o no es un certificado válido; el rol está vacío; `max-attempts` < 1 o algún plazo no es positivo.
+
+### 5.2 Semántica del aprovisionador
+
+- **Mensaje único por broker.** `deleteClient` + `createClient` + `addClientRole` viajan en un solo mensaje de control (`$CONTROL/dynamic-security/v1`), a los 3 brokers en paralelo. El conjunto es idempotente (un `deleteClient` de un cliente inexistente responde «Client not found» y no aborta los siguientes), por eso se puede reintentar tras un error de transporte.
+- **`provision` es todo-o-nada.** Si falla en algún broker se hace `deleteClient` en **todos** (también en el que falló, que pudo aplicar el cambio antes de agotar el plazo) y se lanza `BrokerProvisioningException`. Como `provision` sustituye una credencial anterior, un reemisión fallida deja al dispositivo **sin credencial** en los brokers (falla cerrado), no con la vieja a medias.
+- **`revoke` es idempotente y de mejor esfuerzo.** Tolera «Client not found», intenta **todos** los brokers aunque alguno falle y lanza la excepción al final si alguno falló (el proceso programado lo reintenta). Es la única desviación del todo-o-nada: no hay forma de «des-revocar».
+- **`device_id`**: `[A-Za-z0-9._-]{1,64}`; se rechazan `spottrack-backend` y `spottrack-dynsec-admin`. Los comodines `+`/`#` los acepta `createClient` pero se prohíben aquí por defensa en profundidad.
+- **El secreto no aparece** en logs, `toString` ni mensajes de excepción (hay tests).
+
+### 5.3 Modelo del broker en modo `dynsec`
+
+`broker-startup.sh` crea los roles y deja el plugin con `default deny` en los cuatro tipos de ACL:
+
+| Rol | ACL (nombres de Mosquitto 2.1.2) |
+|---|---|
+| `sensor` | `publishClientSend sensors/%u/signal` y `sensors/%u/heartbeat`. Sin permiso de suscripción. `%u` se sustituye en las ACL de rol. |
+| `backend-reader` | `subscribeLiteral` + `publishClientReceive` sobre `sensors/+/signal` y `sensors/+/heartbeat`. |
+| `admin` (el que crea `dynsec init`, **reducido**) | `publishClientSend`, `publishClientReceive` y `subscribePattern` solo sobre `$CONTROL/dynamic-security/#`. Por defecto `init` le da lectura de `#` y `$SYS/#`; el script lo quita. |
+
+Cuentas: `spottrack-backend` (rol `backend-reader`), `spottrack-dynsec-admin` (rol `admin`), los sensores de `mqtt_device_ids` (rol `sensor`, **solo si no existen**: no se pisa la contraseña de uno ya emparejado) y las cuentas que cree el backend. Un sensor revocado de `mqtt_device_ids` se **recrea** en el siguiente arranque del broker: quítelo de `mqtt_device_ids` cuando ya esté emparejado.
+
+Hallazgos verificados con `eclipse-mosquitto:2.1.2-alpine`: `deleteClient` y `setClientPassword` desconectan al cliente conectado (`disconnected: administrative action`) y sus reconexiones reciben CONNACK 135; con un `device_id` con comodín `+`, `createClient` lo acepta pero publicar a otro dispositivo da RC 135; todas las respuestas del plugin llegan a **todos** los suscriptores de `.../v1/response`, por eso cada comando lleva `correlationData`.
 
 ## 6. Ciclo de vida del pairing
 
@@ -165,8 +202,11 @@ Tras un pairing correcto, el dispositivo debe guardar las credenciales en almace
 4. **Cualquier ADMIN puede emitir el pairing de cualquier sensor.** No se comprueba que el equipo pertenezca a su gimnasio, de modo que un administrador puede rotar la credencial de un sensor ajeno y dejarlo sin conexión.
 5. **El QR es un secreto en pantalla.** Puede quedar en capturas o fotos. Hay que mostrarlo solo a quien vaya a escanearlo, y regenerarlo si se sospecha de filtración.
 6. **Desfase de reloj.** `exp` se calcula con el reloj del servidor; un dispositivo con la hora muy desajustada podría rechazar un QR válido o aceptar uno vencido (el broker lo rechazará de todos modos).
-7. **Brokers independientes sin bridging.** El balanceador reparte a cualquiera de los 3, así que una credencial presente solo en algunos provoca fallos intermitentes. De ahí la semántica todo-o-nada del puerto `BrokerCredentialProvisioner`. Las VMs además pierden su estado al reiniciar; el PR 2 debe reaprovisionar los sensores vigentes.
+7. **Brokers independientes sin bridging.** El balanceador reparte a cualquiera de los 3, así que una credencial presente solo en algunos provoca fallos intermitentes. De ahí la semántica todo-o-nada del puerto `BrokerCredentialProvisioner`. El estado del plugin vive en `/var/lib/mosquitto-dynsec` de cada VM: sobrevive a un `reset`/reinicio, pero **se pierde si se recrea la VM** (`taint`, cambio de disco). Esta entrega no reaprovisiona automáticamente a los sensores emparejados tras recrear un broker: hay que regenerar sus pairing (queda una cuenta ausente en ese broker y los dispositivos que caigan en él serán rechazados).
 8. **El hash BCrypt no se verifica en el backend.** Quien autentica es el broker; el hash sirve como registro de qué secreto se emitió y para una futura verificación.
 9. **Sin límite de intentos** en el endpoint de emisión.
 10. **Un fallo de base de datos tras aprovisionar deshace también la credencial anterior.** Si `provision` tiene éxito y el guardado falla, se hace un `revoke` del dispositivo para no dejar en los brokers un secreto sin registro; como el `provision` ya había sustituido el secreto anterior, el sensor se queda sin credencial hasta que se emita otro pairing.
 11. **Un QR vigente se pierde si el heartbeat llega tarde.** Un heartbeat posterior al TTL no marca `USED`, y el proceso programado revoca la credencial en la siguiente pasada; el dispositivo debe pedir un QR nuevo.
+12. **`mosquitto_ctrl` no es fiable con su código de salida.** Un fallo TLS sale con `0` y sin salida; los errores lógicos («Client already exists», «ACL not found»…) también salen con `0`; `addClientRole` sobre un rol ya asignado responde `Error: Internal error.`. El script de arranque, por eso, inspecciona la salida, verifica el estado final (`listClients`, `getRole`, `getDefaultACLAccess`) y **nunca** usa `$?`; si la siembra falla sale con código distinto de 0 y deja el broker parado.
+13. **Contraseñas en el `argv` durante la siembra.** `createClient <user> -p <password>` se ejecuta en un contenedor efímero; la contraseña es visible un instante en la lista de procesos de la VM del broker (que solo administra el equipo).
+14. **Hallazgo en el modo estático.** Con `password_file` + `acl_file`, el broker **concede** a un sensor la suscripción a `#` y a `sensors/#` (SUBACK 0, verificado en 2.0.22 y 2.1.2). En la prueba con un segundo sensor publicando, el suscriptor **no recibió** el mensaje (el ACL se aplica también al entregar), así que no hay fuga de datos observada, pero sí una suscripción concedida que no debería existir y que mantiene recursos del broker. En modo `dynsec` el sensor no tiene permiso de suscripción: SUBACK 135.
