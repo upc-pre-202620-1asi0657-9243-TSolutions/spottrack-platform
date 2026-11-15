@@ -35,10 +35,12 @@ Para evitar una proliferación arbitraria de traductores, el sistema acota el ca
 
 | Perfil ID (`payloadProfile`) | Fabricante / Origen | Protocolo Base | Formato Payload | Estado |
 |---|---|---|---|---|
-| `default` | SpotTrack Native Emulator / Dispositivo propio | MQTT (TLS 8883) | JSON (camelCase / snake_case) | **Activo** |
-| `vendor-x` | Sensores Industriales PIR Genéricos (Third-Party) | MQTT (TLS 8883) | JSON (snake_case plano) | **Homologado** |
-| `apex-motion` | Apex Fitness Equipment Telemetry | MQTT (TLS 8883) | JSON (anidado propietario) | **Homologado** |
-| `fitpulse-edge` | FitPulse IoT Gateway | MQTT (TLS 8883) | JSON (claves compactas / codificadas) | **Homologado** |
+| `default` | SpotTrack Native Emulator / Dispositivo propio | MQTT (TLS 8883) | JSON (camelCase / snake_case) | **Activo (Implementado)** |
+| `vendor-x` | Sensores Industriales PIR Genéricos (Third-Party) | MQTT (TLS 8883) | JSON (snake_case plano) | **Especificado (Contrato v1)** |
+| `apex-motion` | Apex Fitness Equipment Telemetry | MQTT (TLS 8883) | JSON (anidado propietario) | **Especificado (Contrato v1)** |
+| `fitpulse-edge` | FitPulse IoT Gateway | MQTT (TLS 8883) | JSON (claves compactas / codificadas) | **Especificado (Contrato v1)** |
+
+> **Nota de Arquitectura:** El perfil `default` se encuentra actualmente activo e implementado en el backend mediante `DefaultSensorPayloadTranslator`. Los perfiles `vendor-x`, `apex-motion` y `fitpulse-edge` representan especificaciones formales de contrato v1 acotadas en la arquitectura, diseñadas para ser incorporadas mediante una nueva clase traductora (`SensorPayloadTranslator`) y su registro en el selector según se integren los dispositivos físicos en futuras iteraciones.
 
 ---
 
