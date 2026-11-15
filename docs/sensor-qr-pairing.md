@@ -100,7 +100,9 @@ Respuesta `200`:
 }
 ```
 
-La respuesta lleva `Cache-Control: no-store`. El secreto se devuelve **una sola vez**: en la base de datos solo se guarda su hash BCrypt y no se escribe en ningún log.
+`payloadJson` es exactamente el texto codificado en el QR (JSON compacto, campos en el orden de la sección 3) y `qrPngBase64` su imagen PNG de 320×320 px (corrección de errores M), en Base64 estándar.
+
+La respuesta, también la de error, lleva `Cache-Control: no-store`. El secreto se devuelve **una sola vez**: en la base de datos solo se guarda su hash BCrypt y no se escribe en ningún log.
 
 | Caso | Respuesta |
 |---|---|
@@ -108,23 +110,40 @@ La respuesta lleva `Cache-Control: no-store`. El secreto se devuelve **una sola 
 | Token sin rol ADMIN | `403` |
 | Sensor inexistente | `404 MOTIONSENSOR_NOT_FOUND` |
 | `motionSensorId` en blanco | `400 VALIDATION_ERROR` |
-| `mqtt.public-endpoint` o `mqtt.ca-sha256` sin configurar | `422 BUSINESS_RULE_VIOLATION` |
+| `mqtt.public-endpoint` o `mqtt.ca-sha256` sin configurar o mal formados (ver sección 5) | `422 BUSINESS_RULE_VIOLATION`; `details` indica la propiedad (p. ej. `mqtt.public-endpoint is not configured (expected host:port)`). No se toca ningún broker ni se persiste nada |
 | Falla el aprovisionamiento en los brokers | `500 UNEXPECTED_ERROR`; no se persiste nada |
+| Falla la base de datos después de aprovisionar | `500 UNEXPECTED_ERROR`; se intenta un `revoke` del dispositivo (ver riesgo 10) |
 
-## 5. Ciclo de vida del pairing
+El sensor se comprueba antes que la configuración: un sensor inexistente responde `404` aunque falte configuración.
+
+## 5. Configuración
+
+| Propiedad | Variable de entorno | Por defecto | Descripción |
+|---|---|---|---|
+| `pairing.ttl` | `PAIRING_TTL` | `15m` | Validez de un QR **sin escanear** (formato de duración de Spring: `15m`, `PT15M`). Debe ser positiva. |
+| `pairing.provisioner.mode` | `PAIRING_PROVISIONER_MODE` | `noop` | `noop`: no toca los brokers, solo registra el `deviceId`. Otros valores no activan ningún aprovisionador (el adaptador real llega en el PR 2). |
+| `pairing.expiry-check-interval-ms` | `PAIRING_EXPIRY_CHECK_INTERVAL_MS` | `60000` | Cada cuánto el proceso programado busca pairing vencidos; la expiración real puede retrasarse hasta ese intervalo. |
+| `mqtt.public-endpoint` | `MQTT_PUBLIC_ENDPOINT` | `localhost:8883` (dev) / vacío (prod) | `host:puerto` TLS del balanceador visto por los dispositivos. Puerto entre 1 y 65535. |
+| `mqtt.ca-sha256` | `MQTT_CA_SHA256` | 64 ceros (dev) / vacío (prod) | SHA-256 de la CA en hexadecimal; se aceptan mayúsculas y los `:` de `openssl`, y se normaliza a minúsculas sin `:`. Debe tener 64 caracteres hexadecimales. |
+
+En `prod` los dos últimos no tienen valor por defecto: la aplicación arranca, pero la emisión responde `422` hasta que se configuren. El valor de dev (ceros) no corresponde a ninguna CA real, así que un QR emitido con él no pasa la comprobación de `caSha256` del dispositivo.
+
+## 6. Ciclo de vida del pairing
 
 | Estado | Significado |
 |---|---|
 | `PENDING` | Emitido y aún sin escanear. Caduca en `pairing.ttl` (por defecto 15 min). |
-| `USED` | Llegó el primer heartbeat (o señal) del sensor. La credencial **se queda**; el TTL deja de aplicar. |
+| `USED` | Llegó el primer heartbeat (o señal de movimiento) del sensor, con el pairing aún vigente. La credencial **se queda**; el TTL deja de aplicar. |
 | `EXPIRED` | Venció sin uso. El proceso programado pidió quitar la credencial a los brokers. |
 | `REVOKED` | Reemplazado por un pairing nuevo del mismo sensor. |
 
 Regenerar el pairing de un sensor invalida el secreto anterior: se aprovisiona el secreto nuevo (que sustituye al previo en los brokers) y los pairing `PENDING` o `USED` anteriores pasan a `REVOKED`.
 
-Si al caducar el `revoke` falla, el pairing se queda `PENDING` y se reintenta en la siguiente pasada del proceso programado. Un heartbeat que llega con el pairing ya vencido **no** lo marca `USED`.
+El proceso programado solo toca pairing `PENDING` vencidos: un pairing `USED` no se revoca ni pasa a `EXPIRED` por mucho que haya pasado el TTL. Primero pide el `revoke` a los brokers y, si tiene éxito, lo marca `EXPIRED`.
 
-## 6. QR inválido, expirado o ya usado
+Si al caducar el `revoke` falla, el pairing se queda `PENDING` y se reintenta en la siguiente pasada del proceso programado (otros pairing vencidos no se bloquean). Un heartbeat que llega con el pairing ya vencido **no** lo marca `USED`.
+
+## 7. QR inválido, expirado o ya usado
 
 El backend **no participa en el escaneo**: solo emite el QR y observa el primer heartbeat. Por eso estos casos se detectan en el dispositivo o los rechaza el broker.
 
@@ -138,9 +157,9 @@ El backend **no participa en el escaneo**: solo emite el QR y observa el primer 
 
 Tras un pairing correcto, el dispositivo debe guardar las credenciales en almacenamiento seguro y descartar el QR escaneado.
 
-## 7. Riesgos conocidos
+## 8. Riesgos conocidos
 
-1. **`permitAll` en `/api/v1/monitoring/motion-sensors/**`.** `WebSecurityConfiguration` deja ese patrón sin autenticación, por lo que hoy cualquiera puede registrar sensores (`POST`) y listarlos. Los endpoints de pairing quedan excluidos de ese `permitAll` y exigen ADMIN, pero el resto del patrón sigue abierto. Cerrarlo se deja para otro cambio porque puede romper al simulador IoT.
+1. **`permitAll` en `/api/v1/monitoring/motion-sensors/**`.** `WebSecurityConfiguration` deja ese patrón sin autenticación, por lo que hoy cualquiera puede registrar sensores (`POST`) y listarlos. Los endpoints de pairing quedan excluidos de ese `permitAll` mediante una regla `hasRole('ADMIN')` sobre `/api/v1/monitoring/motion-sensors/*/pairing/**`, colocada antes del `permitAll`, y además llevan `@PreAuthorize`; el resto del patrón sigue abierto. Cerrarlo se deja para otro cambio porque puede romper al simulador IoT.
 2. **`GET /api/v1/monitoring/motion-sensors/devices` publica los `device_id`**, que son los usuarios MQTT. Conocer el usuario es la mitad de la credencial.
 3. **Una credencial `USED` no caduca.** Un QR filtrado tras el primer escaneo sigue siendo un secreto válido hasta que un administrador regenere el pairing. El TTL solo limita la ventana *antes* del primer uso.
 4. **Cualquier ADMIN puede emitir el pairing de cualquier sensor.** No se comprueba que el equipo pertenezca a su gimnasio, de modo que un administrador puede rotar la credencial de un sensor ajeno y dejarlo sin conexión.
@@ -149,3 +168,5 @@ Tras un pairing correcto, el dispositivo debe guardar las credenciales en almace
 7. **Brokers independientes sin bridging.** El balanceador reparte a cualquiera de los 3, así que una credencial presente solo en algunos provoca fallos intermitentes. De ahí la semántica todo-o-nada del puerto `BrokerCredentialProvisioner`. Las VMs además pierden su estado al reiniciar; el PR 2 debe reaprovisionar los sensores vigentes.
 8. **El hash BCrypt no se verifica en el backend.** Quien autentica es el broker; el hash sirve como registro de qué secreto se emitió y para una futura verificación.
 9. **Sin límite de intentos** en el endpoint de emisión.
+10. **Un fallo de base de datos tras aprovisionar deshace también la credencial anterior.** Si `provision` tiene éxito y el guardado falla, se hace un `revoke` del dispositivo para no dejar en los brokers un secreto sin registro; como el `provision` ya había sustituido el secreto anterior, el sensor se queda sin credencial hasta que se emita otro pairing.
+11. **Un QR vigente se pierde si el heartbeat llega tarde.** Un heartbeat posterior al TTL no marca `USED`, y el proceso programado revoca la credencial en la siguiente pasada; el dispositivo debe pedir un QR nuevo.
