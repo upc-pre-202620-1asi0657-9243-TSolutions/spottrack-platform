@@ -7,6 +7,7 @@ import com.spottrack.platform.monitoring.domain.model.events.MotionSensorRegiste
 import com.spottrack.platform.monitoring.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorId;
 import com.spottrack.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -22,9 +23,12 @@ public class MotionSensor extends AbstractDomainAggregateRoot<MotionSensor> {
     private boolean online;
     private LocalDateTime lastStatusChangeAt;
     private LocalDateTime lastSeenAt;
+    @Setter(AccessLevel.NONE)
+    private String payloadProfile;
 
     public MotionSensor(Long id, MotionSensorId motionSensorId, EquipmentId equipmentId, LocalDateTime registeredAt,
-                         boolean online, LocalDateTime lastStatusChangeAt, LocalDateTime lastSeenAt) {
+                         boolean online, LocalDateTime lastStatusChangeAt, LocalDateTime lastSeenAt,
+                         String payloadProfile) {
         this.id = id;
         this.motionSensorId = motionSensorId;
         this.equipmentId = equipmentId;
@@ -32,6 +36,7 @@ public class MotionSensor extends AbstractDomainAggregateRoot<MotionSensor> {
         this.online = online;
         this.lastStatusChangeAt = lastStatusChangeAt;
         this.lastSeenAt = lastSeenAt;
+        this.payloadProfile = normalizeProfile(payloadProfile);
     }
 
     /**
@@ -46,6 +51,11 @@ public class MotionSensor extends AbstractDomainAggregateRoot<MotionSensor> {
         this.online = false;
         this.lastStatusChangeAt = LocalDateTime.now();
         this.lastSeenAt = null;
+        this.payloadProfile = normalizeProfile(command.payloadProfile());
+    }
+
+    private static String normalizeProfile(String payloadProfile) {
+        return payloadProfile == null || payloadProfile.isBlank() ? null : payloadProfile;
     }
 
     public void onCreated() {

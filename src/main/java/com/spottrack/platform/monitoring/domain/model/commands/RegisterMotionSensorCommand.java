@@ -1,4 +1,4 @@
 package com.spottrack.platform.monitoring.domain.model.commands;
 
-public record RegisterMotionSensorCommand(String equipmentId) {
+public record RegisterMotionSensorCommand(String equipmentId, String payloadProfile) {
 }

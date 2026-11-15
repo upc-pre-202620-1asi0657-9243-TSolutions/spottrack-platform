@@ -141,7 +141,7 @@ class SensorSignalListenerTest {
 
     private void givenRegisteredSensor(String equipmentId) {
         var now = LocalDateTime.now();
-        var sensor = new MotionSensor(1L, new MotionSensorId("dev-1"), new EquipmentId(equipmentId), now, false, now, null);
+        var sensor = new MotionSensor(1L, new MotionSensorId("dev-1"), new EquipmentId(equipmentId), now, false, now, null, null);
         when(motionSensorRepository.findByMotionSensorId(new MotionSensorId("dev-1"))).thenReturn(Optional.of(sensor));
     }
 
