@@ -651,7 +651,7 @@ public class DemoDataSeeder {
             return;
         }
         var result = motionSensorCommandService.handle(
-                new com.spottrack.platform.monitoring.domain.model.commands.RegisterMotionSensorCommand(equipmentId));
+                new com.spottrack.platform.monitoring.domain.model.commands.RegisterMotionSensorCommand(equipmentId, null));
         if (result instanceof Result.Failure<?, ?> f) {
             log.warn("[DemoDataSeeder] Failed to seed motion sensor: {}", f.error());
             return;

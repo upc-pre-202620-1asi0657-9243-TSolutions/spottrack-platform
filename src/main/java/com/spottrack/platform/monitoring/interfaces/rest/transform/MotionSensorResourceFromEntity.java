@@ -16,7 +16,8 @@ public class MotionSensorResourceFromEntity {
                 entity.getRegisteredAt(),
                 entity.isOnline(),
                 entity.getLastStatusChangeAt(),
-                entity.getLastSeenAt()
+                entity.getLastSeenAt(),
+                entity.getPayloadProfile()
         );
     }
 }

@@ -9,7 +9,10 @@ import com.spottrack.platform.monitoring.domain.model.valueobjects.MotionSensorI
 import com.spottrack.platform.monitoring.domain.repositories.MotionSensorRepository;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.DefaultSensorPayloadTranslator;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.RejectedSensorSignalRegistry;
+import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.SensorPayloadTranslator;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.SensorPayloadTranslatorSelector;
+import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation.TelemetrySignal;
+import com.spottrack.platform.shared.application.result.Result;
 import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,12 +36,14 @@ import static org.mockito.Mockito.when;
 class SensorSignalListenerTest {
 
     private static final String TOPIC = "sensors/dev-1/signal";
+    private static final String ALT_PAYLOAD = "{\"id\":\"dev-1\",\"evt\":\"mv\",\"ms\":800}";
     private static final String VALID_PAYLOAD = "{\"deviceId\":\"dev-1\",\"signalType\":\"MOTION\",\"durationMs\":800}";
 
     private MqttBrokerPool mqttBrokerPool;
     private MotionSensorRepository motionSensorRepository;
     private SessionTrackerCommandService sessionTrackerCommandService;
     private MotionSensorCommandService motionSensorCommandService;
+    private SensorPayloadTranslator altTranslator;
     private RejectedSensorSignalRegistry rejectedSignals;
     private IMqttMessageListener signalHandler;
 
@@ -48,8 +53,11 @@ class SensorSignalListenerTest {
         motionSensorRepository = mock(MotionSensorRepository.class);
         sessionTrackerCommandService = mock(SessionTrackerCommandService.class);
         motionSensorCommandService = mock(MotionSensorCommandService.class);
+        altTranslator = mock(SensorPayloadTranslator.class);
+        when(altTranslator.profile()).thenReturn("alt");
+        when(altTranslator.translate(any())).thenReturn(Result.success(new TelemetrySignal("dev-1", "MOTION", 800, null)));
         var selector = new SensorPayloadTranslatorSelector(
-                List.of(new DefaultSensorPayloadTranslator(JsonMapper.builder().build())));
+                List.of(new DefaultSensorPayloadTranslator(JsonMapper.builder().build()), altTranslator));
 
         rejectedSignals = new RejectedSensorSignalRegistry();
 
@@ -77,6 +85,47 @@ class SensorSignalListenerTest {
         send(VALID_PAYLOAD);
 
         verify(sessionTrackerCommandService).handle(new MotionSensorCaptureCommand(new EquipmentId("eq-7"), true));
+    }
+
+    @Test
+    void sensorWithoutProfileUsesTheDefaultTranslatorNotTheAlternativeOne() throws Exception {
+        givenRegisteredSensor("eq-7");
+
+        send(VALID_PAYLOAD);
+
+        verify(altTranslator, never()).translate(any());
+        verify(sessionTrackerCommandService).handle(new MotionSensorCaptureCommand(new EquipmentId("eq-7"), true));
+    }
+
+    @Test
+    void sensorWithAltProfileUsesTheAlternativeTranslatorInsteadOfTheDefault() throws Exception {
+        givenRegisteredSensor("eq-7", "alt");
+
+        send(ALT_PAYLOAD);
+
+        verify(altTranslator).translate(ALT_PAYLOAD);
+        verify(sessionTrackerCommandService).handle(new MotionSensorCaptureCommand(new EquipmentId("eq-7"), true));
+        assertEquals(0, rejectedSignals.stats().total());
+    }
+
+    @Test
+    void sensorWithAltProfileIsNotReadWithTheDefaultFormat() throws Exception {
+        givenRegisteredSensor("eq-7", "alt");
+
+        send(VALID_PAYLOAD);
+
+        verify(altTranslator).translate(VALID_PAYLOAD);
+        assertEquals(0, rejectedSignals.stats().total());
+    }
+
+    @Test
+    void sensorWithAProfileNoTranslatorSupportsIsRejectedUnderThatProfile() throws Exception {
+        givenRegisteredSensor("eq-7", "retired");
+
+        send(VALID_PAYLOAD);
+
+        verify(sessionTrackerCommandService, never()).handle(any(MotionSensorCaptureCommand.class));
+        assertEquals(1L, rejectedSignals.stats().byProfile().get("retired"));
     }
 
     @Test
@@ -140,8 +189,13 @@ class SensorSignalListenerTest {
     }
 
     private void givenRegisteredSensor(String equipmentId) {
+        givenRegisteredSensor(equipmentId, null);
+    }
+
+    private void givenRegisteredSensor(String equipmentId, String payloadProfile) {
         var now = LocalDateTime.now();
-        var sensor = new MotionSensor(1L, new MotionSensorId("dev-1"), new EquipmentId(equipmentId), now, false, now, null);
+        var sensor = new MotionSensor(1L, new MotionSensorId("dev-1"), new EquipmentId(equipmentId), now, false, now, null,
+                payloadProfile);
         when(motionSensorRepository.findByMotionSensorId(new MotionSensorId("dev-1"))).thenReturn(Optional.of(sensor));
     }
 
