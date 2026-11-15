@@ -45,7 +45,36 @@ class DefaultSensorPayloadTranslatorTest {
         var result = translator.translate("{\"deviceId\":\"dev-1\",\"battery\":87}");
 
         assertEquals("dev-1", success(result).deviceId());
+        assertEquals(1, success(result).schemaVersion());
     }
+
+    @Test
+    void payloadWithoutSchemaVersionDefaultsToVersionOne() {
+        var result = translator.translate(
+                "{\"deviceId\":\"dev-1\",\"signalType\":\"MOTION\",\"durationMs\":1200,\"timestamp\":\"2026-11-13T10:00:00Z\"}");
+
+        assertEquals(1, success(result).schemaVersion());
+        assertEquals(new TelemetrySignal("dev-1", "MOTION", 1200, "2026-11-13T10:00:00Z", 1), success(result));
+    }
+
+    @Test
+    void payloadWithExplicitSnakeCaseSchemaVersionIsRespected() {
+        var result = translator.translate(
+                "{\"device_id\":\"dev-1\",\"signal_type\":\"MOTION\",\"duration_ms\":1200,\"timestamp\":\"2026-11-13T10:00:00Z\",\"schema_version\":2}");
+
+        assertEquals(2, success(result).schemaVersion());
+        assertEquals(new TelemetrySignal("dev-1", "MOTION", 1200, "2026-11-13T10:00:00Z", 2), success(result));
+    }
+
+    @Test
+    void payloadWithExplicitCamelCaseSchemaVersionIsRespected() {
+        var result = translator.translate(
+                "{\"deviceId\":\"dev-1\",\"signalType\":\"MOTION\",\"durationMs\":1200,\"timestamp\":\"2026-11-13T10:00:00Z\",\"schemaVersion\":3}");
+
+        assertEquals(3, success(result).schemaVersion());
+        assertEquals(new TelemetrySignal("dev-1", "MOTION", 1200, "2026-11-13T10:00:00Z", 3), success(result));
+    }
+
 
     @Test
     void invalidJsonIsAValidationFailure() {
