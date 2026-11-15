@@ -7,8 +7,10 @@
 #     internal IPs the backend uses.
 
 locals {
-  mqtt_backend_username = "spottrack-backend"
-  mqtt_tls_port         = 8883
+  mqtt_backend_username      = "spottrack-backend"
+  mqtt_dynsec_admin_username = "spottrack-dynsec-admin"
+  mqtt_tls_port              = 8883
+  mqtt_dynsec                = var.mqtt_auth_mode == "dynsec"
 }
 
 # ---------- Certificates (private CA, so no domain is needed) ----------
@@ -69,10 +71,12 @@ resource "random_password" "mqtt_device" {
 }
 
 locals {
-  # Plaintext "user:password" lines; each broker hashes them on boot
-  # (mosquitto_passwd -U), so only hashes are stored on disk.
+  # Plaintext "user:password" lines. static: each broker hashes them on boot (mosquitto_passwd -U),
+  # so only hashes are stored on disk. dynsec: the startup script creates these accounts in the
+  # plugin (backend, admin and the sensors of mqtt_device_ids, which keep working until revoked).
   mqtt_passwd = join("\n", concat(
     ["${local.mqtt_backend_username}:${random_password.generated["mqtt-backend-password"].result}"],
+    local.mqtt_dynsec ? ["${local.mqtt_dynsec_admin_username}:${random_password.generated["mqtt-dynsec-admin-password"].result}"] : [],
     [for id, pw in random_password.mqtt_device : "${id}:${pw.result}"],
   ))
 
@@ -87,7 +91,7 @@ locals {
     pattern write sensors/%u/heartbeat
   ACL
 
-  mosquitto_conf = <<-CONF
+  mosquitto_conf_static = <<-CONF
     listener ${local.mqtt_tls_port}
     cafile   /mosquitto/config/certs/ca.crt
     certfile /mosquitto/config/certs/server.crt
@@ -104,6 +108,28 @@ locals {
     connection_messages true
     log_timestamp_format %Y-%m-%dT%H:%M:%S
   CONF
+
+  # Users, roles and ACLs live in the plugin's state file (/mosquitto/dynsec, a host directory the
+  # startup script does not wipe); broker-startup.sh seeds them. No password_file or acl_file.
+  mosquitto_conf_dynsec = <<-CONF
+    listener ${local.mqtt_tls_port}
+    cafile   /mosquitto/config/certs/ca.crt
+    certfile /mosquitto/config/certs/server.crt
+    keyfile  /mosquitto/config/certs/server.key
+    tls_version tlsv1.2
+
+    allow_anonymous false
+    plugin /usr/lib/mosquitto_dynamic_security.so
+    plugin_opt_config_file /mosquitto/dynsec/dynamic-security.json
+
+    # "all" includes the debug lines with denied publishes (QA-05 evidence).
+    log_dest stdout
+    log_type all
+    connection_messages true
+    log_timestamp_format %Y-%m-%dT%H:%M:%S
+  CONF
+
+  mosquitto_conf = local.mqtt_dynsec ? local.mosquitto_conf_dynsec : local.mosquitto_conf_static
 }
 
 # ---------- Broker secrets (Secret Manager, not instance metadata) ----------

@@ -64,6 +64,8 @@ trap 'rm -f "$ENV_FILE"' EXIT
   echo "DATABASE_PASSWORD=$(secret db-password)"
   echo "JWT_SECRET=$(secret jwt-secret)"
   echo "MQTT_PASSWORD=$(secret mqtt-backend-password)"
+  # Only used with PAIRING_PROVISIONER_MODE=dynsec; the secret may not exist yet on an older environment.
+  echo "MQTT_DYNSEC_ADMIN_PASSWORD=$(secret mqtt-dynsec-admin-password 2>/dev/null || true)"
   echo "STRIPE_SECRET_API_KEY=$(secret stripe-api-key)"
   echo "STRIPE_WEBHOOK_SECRET=$(secret stripe-webhook-secret)"
 } > "$ENV_FILE"

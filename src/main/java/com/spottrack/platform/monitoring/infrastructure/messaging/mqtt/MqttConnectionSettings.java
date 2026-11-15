@@ -8,8 +8,12 @@ import javax.net.ssl.TrustManagerFactory;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.MessageDigest;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.Base64;
+import java.util.HexFormat;
 
 /**
  * Credentials and TLS trust shared by every broker connection (Iteration 5, QA-05).
@@ -40,8 +44,7 @@ public record MqttConnectionSettings(String username, String password, String ca
 
     private SSLSocketFactory socketFactory() {
         try {
-            var certificate = CertificateFactory.getInstance("X.509")
-                    .generateCertificate(new ByteArrayInputStream(pem()));
+            var certificate = parseCertificate(caCertificate);
             var trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
             trustStore.load(null, null);
             trustStore.setCertificateEntry("spottrack-mqtt-ca", certificate);
@@ -59,8 +62,26 @@ public record MqttConnectionSettings(String username, String password, String ca
         }
     }
 
+    /**
+     * SHA-256 of the CA in DER, lower case hex: the pin devices check when they scan a pairing QR.
+     *
+     * @throws IllegalArgumentException when the value is not a PEM or base64 PEM certificate
+     */
+    public static String caSha256Of(String caCertificate) {
+        try {
+            var digest = MessageDigest.getInstance("SHA-256").digest(parseCertificate(caCertificate).getEncoded());
+            return HexFormat.of().formatHex(digest);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid MQTT CA certificate (MQTT_CA_CERT)", e);
+        }
+    }
+
+    private static Certificate parseCertificate(String caCertificate) throws CertificateException {
+        return CertificateFactory.getInstance("X.509").generateCertificate(new ByteArrayInputStream(pem(caCertificate)));
+    }
+
     /** Accepts the PEM as is, or base64 encoded (how Terraform passes it as one env line). */
-    private byte[] pem() {
+    private static byte[] pem(String caCertificate) {
         var value = caCertificate.trim();
         if (value.startsWith("-----BEGIN")) return value.getBytes(StandardCharsets.UTF_8);
         return Base64.getDecoder().decode(value);
