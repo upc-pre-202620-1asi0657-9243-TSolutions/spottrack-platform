@@ -72,8 +72,7 @@ public class SensorSignalListener {
 
             recordHeartbeat(deviceId);
 
-            // TODO(TA-10): use the sensor's payloadProfile once MotionSensor carries it; null selects the default format.
-            String payloadProfile = null;
+            var payloadProfile = sensor.get().getPayloadProfile();
             var translation = payloadTranslatorSelector.select(payloadProfile)
                     .flatMap(translator -> translator.translate(new String(message.getPayload(), StandardCharsets.UTF_8)));
             if (translation instanceof Result.Failure<?, ApplicationError> failure) {
