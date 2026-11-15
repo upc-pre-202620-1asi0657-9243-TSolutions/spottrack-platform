@@ -39,8 +39,9 @@ Para evitar una proliferación arbitraria de traductores, el sistema acota el ca
 | `vendor-x` | Sensores Industriales PIR Genéricos (Third-Party) | MQTT (TLS 8883) | JSON (snake_case plano) | **Especificado (Contrato v1)** |
 | `apex-motion` | Apex Fitness Equipment Telemetry | MQTT (TLS 8883) | JSON (anidado propietario) | **Especificado (Contrato v1)** |
 | `fitpulse-edge` | FitPulse IoT Gateway | MQTT (TLS 8883) | JSON (claves compactas / codificadas) | **Especificado (Contrato v1)** |
+| `compact-emulator` | Emulador IoT alternativo de validación (QA-06, TA-13) | MQTT (TLS 8883) | JSON (claves compactas `dev`, `sig`, `dur`, `ts`) | **Activo (Implementado)** |
 
-> **Nota de Arquitectura:** El perfil `default` se encuentra actualmente activo e implementado en el backend mediante `DefaultSensorPayloadTranslator`. Los perfiles `vendor-x`, `apex-motion` y `fitpulse-edge` representan especificaciones formales de contrato v1 acotadas en la arquitectura, diseñadas para ser incorporadas mediante una nueva clase traductora (`SensorPayloadTranslator`) y su registro en el selector según se integren los dispositivos físicos en futuras iteraciones.
+> **Nota de Arquitectura:** Los perfiles `default` y `compact-emulator` se encuentran activos e implementados en el backend mediante `DefaultSensorPayloadTranslator` y `CompactSensorPayloadTranslator`. El segundo existe como prueba de que un formato distinto al canónico se incorpora solo con una clase traductora nueva, sin tocar el listener ni el dominio (QA-06). Los perfiles `vendor-x`, `apex-motion` y `fitpulse-edge` representan especificaciones formales de contrato v1 acotadas en la arquitectura, diseñadas para ser incorporadas mediante una nueva clase traductora (`SensorPayloadTranslator`) y su registro en el selector según se integren los dispositivos físicos en futuras iteraciones.
 
 ---
 
@@ -56,6 +57,18 @@ La siguiente matriz define el mapeo formal desde la estructura de datos externa 
 | **`timestamp`** | `timestamp` *(ISO-8601)* | `ts_epoch` *(Epoch en segundos)* | `recorded_at` *(ISO-8601)* | `epoch_ms` *(Epoch en milisegundos)* |
 | **`schemaVersion`** | `schemaVersion` o `schema_version` *(def: 1)* | *(No provisto, asume 1)* | `version` *(def: 1)* | `ver` *(def: 1)* |
 
+Perfil `compact-emulator` (implementado):
+
+| Atributo Canónico v1 | Campo de origen en `compact-emulator` |
+|---|---|
+| **`deviceId`** | `dev` *(obligatorio)* |
+| **`signalType`** | `sig`: `"mv"` → `MOTION`, `"hb"` → `HEARTBEAT` |
+| **`durationMs`** | `dur` *(segundos, decimales permitidos; ausente = 0)* |
+| **`timestamp`** | `ts` *(ISO-8601 con offset, normalizado a UTC; ausente = instante actual del servidor)* |
+| **`schemaVersion`** | *(No provisto, asume 1)* |
+
+Ejemplo: `{"dev":"alt-sensor-001","sig":"mv","dur":1.5,"ts":"2026-11-15T12:00:00Z"}`.
+
 ---
 
 ## 5. Reglas de Transformación y Normalización
@@ -68,6 +81,7 @@ La siguiente matriz define el mapeo formal desde la estructura de datos externa 
 - **Perfil `apex-motion`:** La lectura de `pulse_ms` es nativa en milisegundos y se asigna directamente.
 - **Perfil `fitpulse-edge`:** Se recibe un valor decimal en segundos (`duration`). La regla de transformación aplica:  
   $$\text{durationMs} = \text{round}(\text{duration} \times 1000)$$
+- **Perfil `compact-emulator`:** Se recibe un valor decimal en segundos (`dur`), con la misma regla $\text{round}(\text{dur} \times 1000)$. Un valor negativo o no finito se rechaza; si falta se normaliza a `0`.
 
 ### 5.2. Taxonomía y Normalización de Tipos de Señal (`signalType`)
 
@@ -78,6 +92,8 @@ Cualquier nomenclatura heterogénea de evento que indique presencia o activació
 | **`"MOTION"`** | `"MOTION"`, `"motion"` | `"MOTION_DETECTED"`, `"OCCUPIED"`, `"TRIGGER"` | `"ACT_START"`, `"ACTIVE_PULSE"`, `"1"` | `"MOV_ON"`, `"IN_USE"`, `"TRUE"` |
 | **`"HEARTBEAT"`** | `"HEARTBEAT"` | `"PING"`, `"KEEPALIVE"` | `"STATUS_OK"`, `"PING"` | `"BEAT"`, `"ALIVE"` |
 
+En `compact-emulator` solo se aceptan exactamente `"mv"` (`MOTION`) y `"hb"` (`HEARTBEAT`); cualquier otro valor, incluida otra capitalización, se rechaza con `VALIDATION_ERROR`.
+
 ### 5.3. Normalización de Marcas de Tiempo (`timestamp`)
 
 - **Formatos ISO-8601 (`String`):** Se valida contra estándar `DateTimeFormatter.ISO_OFFSET_DATE_TIME` (o `ISO_INSTANT`).
@@ -86,6 +102,7 @@ Cualquier nomenclatura heterogénea de evento que indique presencia o activació
 - **Formatos Epoch Unix en Milisegundos (`long`):** Se transforma a fecha/hora UTC:  
   $$\text{Instant.ofEpochMilli(epoch\_ms).toString()}$$
 - **Timestamp Ausente o Inválido:** Si el payload del sensor carece de timestamp, el traductor genera el timestamp actual del servidor (`Instant.now().toString()`), garantizando que la señal ingrese al dominio con marca de tiempo precisa.
+- **Perfil `compact-emulator`:** `ts` se lee con `OffsetDateTime.parse` y se normaliza a UTC (`2026-11-15T07:05:00-05:00` → `2026-11-15T12:05:00Z`). A diferencia de la regla general, un `ts` presente pero que no sea ISO-8601 con offset **se rechaza**; solo la ausencia o el blanco genera el instante del servidor.
 
 ---
 
@@ -95,4 +112,22 @@ Cualquier nomenclatura heterogénea de evento que indique presencia o activació
 2. **Versionado de Esquema:** Todo payload recibido sin versión explícita se asume como versión `1` (compatibilidad hacia atrás). Ante un cambio de versión canónica futura (v2), los traductores podrán discriminar reglas de conversión por versión sin afectar a los sensores ya desplegados en el gimnasio.
 3. **Resiliencia ante Payloads Inválidos:** Todo payload que no respete el formato de su perfil o contenga errores sintácticos devuelve un `Result.Failure(ApplicationError)` de tipo `VALIDATION_ERROR`, el cual es contabilizado en `RejectedSensorSignalRegistry` sin lanzar excepciones de runtime no controladas.
 
+---
 
+## 7. Hallazgos y Riesgos Conocidos (no corregidos en TA-13)
+
+Detectados al implementar el perfil `compact-emulator`. Se documentan como riesgo; no se corrigen en esta rama.
+
+1. **El listener ignora el tipo de señal.** `SensorSignalListener` solo comprueba que el traductor devuelva un `TelemetrySignal`. No lee `signalType`, `durationMs` ni `timestamp`: toda señal traducida con éxito en `sensors/<id>/signal` genera un `MotionSensorCaptureCommand`. Una señal `HEARTBEAT` (por ejemplo `{"dev":"x","sig":"hb"}`) publicada en el tópico de señal cuenta como movimiento y puede pasar el equipo a `OCCUPIED`. El latido legítimo debe publicarse en `sensors/<id>/heartbeat`. `SensorSignalListenerCompactProfileTest` fija este comportamiento tal como es hoy.
+2. **El identificador del dispositivo sale del tópico, no del payload.** El campo `dev` es obligatorio en `compact-emulator`, pero el listener no lo compara con el `<id>` del tópico. Un payload con un `dev` distinto se acepta igualmente y se atribuye al sensor del tópico (también fijado en `SensorSignalListenerCompactProfileTest`).
+3. **`DefaultSensorPayloadTranslator` no valida campos obligatorios.** Un JSON válido sin `deviceId` se traduce sin error. Solo `compact-emulator` exige `dev`. Se mantiene así para no cambiar el comportamiento de los sensores ya desplegados.
+4. **Toda señal también cuenta como latido.** El listener registra un latido en cada señal recibida de un sensor conocido antes de traducirla, incluso si el payload se rechaza después.
+
+## 8. Evidencia de QA-01 (latencia)
+
+El benchmark `Qa01LatencyBenchmark` (en `src/test`, desactivado salvo `-Dqa01.run=true`) mide el tiempo entre la publicación MQTT y que el equipo aparezca como `OCCUPIED` en `GET /api/v1/gyms/{gymId}/equipments`, y entre la publicación y el mensaje STOMP en `/topic/monitoring/session-trackers/{id}`. Reporta mínimo, mediana, p95 (rango más cercano), máximo, errores y timeouts, con umbral de referencia p95 < 2 s.
+
+- El sondeo del listado tiene un error de medición del orden del intervalo `qa01.poll.interval.ms` (20 ms por defecto) más el RTT de una consulta HTTP; el resultado por HTTP es una cota superior de la latencia real. El canal STOMP no tiene ese error de sondeo.
+- Los mensajes STOMP no llevan identificador de correlación: el benchmark vacía la cola antes de cada publicación y reinicia el equipo a `AVAILABLE` entre iteraciones.
+- Una ejecución contra `localhost` imprime una advertencia y **no** constituye evidencia de QA-01: solo una ejecución contra el entorno desplegado, con broker TLS y red reales, lo es.
+- Endpoints, JWT y credenciales MQTT se pasan por propiedades `-Dqa01.*` o variables de entorno equivalentes (`QA01_API_URL`, etc.); no hay valores por defecto ni se guardan en el repositorio.
