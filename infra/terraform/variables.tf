@@ -48,12 +48,6 @@ variable "extra_app_env" {
   default = {}
 }
 
-# db-f1-micro: shared core, 0.6 GB RAM, cheapest Cloud SQL tier.
-variable "db_tier" {
-  type    = string
-  default = "db-f1-micro"
-}
-
 # MQTT user per sensor (username = device_id). Add a sensor here and re-apply
 # so it can connect to the brokers; it gets its own generated password.
 variable "mqtt_device_ids" {
