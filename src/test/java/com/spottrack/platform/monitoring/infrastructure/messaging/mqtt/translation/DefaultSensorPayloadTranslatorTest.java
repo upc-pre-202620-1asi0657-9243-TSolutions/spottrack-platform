@@ -75,6 +75,18 @@ class DefaultSensorPayloadTranslatorTest {
         assertEquals(new TelemetrySignal("dev-1", "MOTION", 1200, "2026-11-13T10:00:00Z", 3), success(result));
     }
 
+    @Test
+    void payloadWithUnknownExtraFieldsIsParsedSuccessfullyIgnoringExtras() {
+        var result = translator.translate(
+                "{\"deviceId\":\"dev-1\",\"signalType\":\"MOTION\",\"durationMs\":500,\"batteryLevel\":95,\"vendor\":\"VendorX\",\"firmware\":\"2.4.1\",\"extraObj\":{\"nested\":true}}");
+
+        var signal = success(result);
+        assertEquals("dev-1", signal.deviceId());
+        assertEquals("MOTION", signal.signalType());
+        assertEquals(500, signal.durationMs());
+        assertEquals(1, signal.schemaVersion());
+    }
+
 
     @Test
     void invalidJsonIsAValidationFailure() {
