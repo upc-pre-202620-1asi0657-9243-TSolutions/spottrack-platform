@@ -36,7 +36,7 @@ public class DefaultSensorPayloadTranslator implements SensorPayloadTranslator {
                 return Result.failure(ApplicationError.validationError("sensorPayload", "Payload is empty"));
             }
             return Result.success(new TelemetrySignal(
-                    message.deviceId(), message.signalType(), message.durationMs(), message.timestamp()));
+                    message.deviceId(), message.signalType(), message.durationMs(), message.timestamp(), message.schemaVersion()));
         } catch (JacksonException e) {
             return Result.failure(ApplicationError.validationError("sensorPayload", e.getOriginalMessage()));
         }
