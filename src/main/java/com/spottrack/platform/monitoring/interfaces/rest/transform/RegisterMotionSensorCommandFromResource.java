@@ -5,6 +5,6 @@ import com.spottrack.platform.monitoring.interfaces.rest.resources.RegisterMotio
 
 public class RegisterMotionSensorCommandFromResource {
     public static RegisterMotionSensorCommand toCommandFromResource(RegisterMotionSensorResource resource) {
-        return new RegisterMotionSensorCommand(resource.equipmentId());
+        return new RegisterMotionSensorCommand(resource.equipmentId(), resource.payloadProfile());
     }
 }

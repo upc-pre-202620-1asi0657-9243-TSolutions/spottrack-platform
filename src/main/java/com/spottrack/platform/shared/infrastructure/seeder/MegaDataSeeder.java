@@ -526,7 +526,7 @@ public class MegaDataSeeder {
     // ── Sensors, usage, maintenance, analytics ───────────────────────────────
 
     private void seedSensors(SeededEquipment e) {
-        soft("motion sensor", () -> motionSensorCommandService.handle(new RegisterMotionSensorCommand(e.id)));
+        soft("motion sensor", () -> motionSensorCommandService.handle(new RegisterMotionSensorCommand(e.id, null)));
         count("motionSensors");
         if (e.machine.zone().equals("Cardio") || e.machine.zone().equals("Funcional")) {
             soft("camera sensor", () -> cameraSensorCommandService.handle(new RegisterCameraSensorCommand(e.id)));
@@ -661,7 +661,7 @@ public class MegaDataSeeder {
         for (int i = anomalies; i < anomalies + disconnections && i < candidates.size(); i++) {
             var e = candidates.get(i);
             e.touchedByMaintenance = true;
-            var sensor = motionSensorCommandService.handle(new RegisterMotionSensorCommand(e.id));
+            var sensor = motionSensorCommandService.handle(new RegisterMotionSensorCommand(e.id, null));
             // Registration fails when the sensor already exists; the repository lookup isn't needed then.
             if (sensor instanceof Result.Success<?, ?> success) {
                 var motionSensor = (com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor) success.value();

@@ -35,17 +35,20 @@ locals {
 
   # Non-secret settings. Secrets are read from Secret Manager on the VM.
   app_env = merge({
-    SPRING_PROFILES_ACTIVE = "prod"
-    PORT                   = "8080"
-    DATABASE_URL           = "mysql"
-    DATABASE_PORT          = "3306"
-    DATABASE_NAME          = "spottrack"
-    DATABASE_USER          = "spottrack"
-    MQTT_HOST              = google_compute_address.broker_internal[0].address
-    MQTT_PORT              = tostring(local.mqtt_tls_port)
-    MQTT_BROKER_URLS       = join(",", [for a in google_compute_address.broker_internal : "ssl://${a.address}:${local.mqtt_tls_port}"])
-    MQTT_USERNAME          = local.mqtt_backend_username
-    MQTT_CA_CERT           = base64encode(tls_self_signed_cert.mqtt_ca.cert_pem)
+    SPRING_PROFILES_ACTIVE     = "prod"
+    PORT                       = "8080"
+    DATABASE_URL               = "mysql"
+    DATABASE_PORT              = "3306"
+    DATABASE_NAME              = "spottrack"
+    DATABASE_USER              = "spottrack"
+    MQTT_HOST                  = google_compute_address.broker_internal[0].address
+    MQTT_PORT                  = tostring(local.mqtt_tls_port)
+    MQTT_BROKER_URLS           = join(",", [for a in google_compute_address.broker_internal : "ssl://${a.address}:${local.mqtt_tls_port}"])
+    MQTT_USERNAME              = local.mqtt_backend_username
+    MQTT_CA_CERT               = base64encode(tls_self_signed_cert.mqtt_ca.cert_pem)
+    MQTT_PUBLIC_ENDPOINT       = "${google_compute_address.mqtt.address}:${local.mqtt_tls_port}"
+    PAIRING_PROVISIONER_MODE   = var.pairing_provisioner_mode
+    MQTT_DYNSEC_ADMIN_USERNAME = local.mqtt_dynsec_admin_username
   }, var.extra_app_env)
 }
 

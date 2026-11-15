@@ -9,6 +9,8 @@ resource "random_password" "generated" {
     jwt-secret = 96
     # Backend service account on the MQTT brokers.
     mqtt-backend-password = 32
+    # Admin account of the brokers' dynamic-security plugin (used only with mqtt_auth_mode = dynsec).
+    mqtt-dynsec-admin-password = 32
   }
   length  = each.value
   special = false

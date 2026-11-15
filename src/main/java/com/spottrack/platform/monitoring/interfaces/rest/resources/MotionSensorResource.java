@@ -20,6 +20,9 @@ public record MotionSensorResource(
         @Schema(description = "Timestamp of the last online/offline status change")
         LocalDateTime lastStatusChangeAt,
         @Schema(description = "Timestamp of the last heartbeat or signal received from the device")
-        LocalDateTime lastSeenAt
+        LocalDateTime lastSeenAt,
+        @Schema(description = "Payload profile used to translate this sensor's MQTT signals; null means the default format",
+                nullable = true, example = "alt")
+        String payloadProfile
 ) {
 }

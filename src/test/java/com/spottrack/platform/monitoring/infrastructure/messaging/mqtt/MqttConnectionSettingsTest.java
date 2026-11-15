@@ -87,6 +87,19 @@ class MqttConnectionSettingsTest {
         assertThrows(IllegalStateException.class, () -> settings.applyTo(new MqttConnectOptions(), TLS_BROKER));
     }
 
+    @Test
+    void caSha256MatchesOpensslOverTheDerAndAcceptsBase64() {
+        var base64 = Base64.getEncoder().encodeToString(CA_PEM.getBytes(StandardCharsets.UTF_8));
+
+        assertEquals("7186a185daa69dca655bebf6fcc910d69242674e9e816aab937e8d48c32e3318", MqttConnectionSettings.caSha256Of(CA_PEM));
+        assertEquals("7186a185daa69dca655bebf6fcc910d69242674e9e816aab937e8d48c32e3318", MqttConnectionSettings.caSha256Of(base64));
+    }
+
+    @Test
+    void caSha256OfAnInvalidCertificateFails() {
+        assertThrows(IllegalArgumentException.class, () -> MqttConnectionSettings.caSha256Of("not-a-certificate"));
+    }
+
     private static MqttConnectOptions applied(MqttConnectionSettings settings, String brokerUrl) {
         var options = new MqttConnectOptions();
         settings.applyTo(options, brokerUrl);

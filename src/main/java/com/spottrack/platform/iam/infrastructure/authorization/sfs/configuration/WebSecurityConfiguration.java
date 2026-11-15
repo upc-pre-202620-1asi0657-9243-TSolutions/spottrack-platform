@@ -49,6 +49,8 @@ public class WebSecurityConfiguration {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Must stay before the permitAll of motion-sensors/**: first match wins.
+                        .requestMatchers("/api/v1/monitoring/motion-sensors/*/pairing/**").hasRole("ADMIN")
                         .requestMatchers(
                                 "/api/v1/authentication/sign-in",
                                 "/api/v1/authentication/sign-up",
