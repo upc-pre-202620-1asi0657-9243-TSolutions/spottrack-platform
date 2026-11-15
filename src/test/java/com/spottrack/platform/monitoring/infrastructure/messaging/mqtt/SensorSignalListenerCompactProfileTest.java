@@ -93,6 +93,20 @@ class SensorSignalListenerCompactProfileTest {
         assertEquals("dev-1", rejectedSignals.stats().lastRejected().deviceId());
     }
 
+    @Test
+    void heartbeatPayloadOnTheSignalTopicStillCountsAsMotionBecauseTheListenerIgnoresTheSignalType() throws Exception {
+        send("{\"dev\":\"dev-1\",\"sig\":\"hb\"}");
+
+        verify(sessionTrackerCommandService).handle(new MotionSensorCaptureCommand(new EquipmentId("eq-7"), true));
+    }
+
+    @Test
+    void payloadDevDifferentFromTheTopicDeviceIsAttributedToTheTopicSensor() throws Exception {
+        send("{\"dev\":\"someone-else\",\"sig\":\"mv\"}");
+
+        verify(sessionTrackerCommandService).handle(new MotionSensorCaptureCommand(new EquipmentId("eq-7"), true));
+    }
+
     private void send(String payload) throws Exception {
         signalHandler.messageArrived(TOPIC, new MqttMessage(payload.getBytes(StandardCharsets.UTF_8)));
     }
