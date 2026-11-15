@@ -89,6 +89,38 @@ class SensorPayloadTranslatorContractTest {
         assertEquals(1, signal.schemaVersion());
     }
 
+    @Test
+    @DisplayName("Malformed payload returns ApplicationError without throwing runtime exceptions")
+    void malformedPayloadReturnsApplicationErrorWithoutThrowingException() {
+        var payload = loadContractPayload("contracts/telemetry/default-v1-invalid-malformed.json");
+
+        var result = assertDoesNotThrow(() -> translator.translate(payload));
+
+        var error = assertFailure(result);
+        assertEquals("VALIDATION_ERROR", error.code());
+        assertNotNull(error.message());
+    }
+
+    @Test
+    @DisplayName("Empty string payload safely returns ApplicationError without throwing runtime exceptions")
+    void emptyStringPayloadReturnsApplicationError() {
+        var result = assertDoesNotThrow(() -> translator.translate(""));
+
+        var error = assertFailure(result);
+        assertEquals("VALIDATION_ERROR", error.code());
+        assertNotNull(error.message());
+    }
+
+    @Test
+    @DisplayName("Literal null payload safely returns ApplicationError without throwing runtime exceptions")
+    void literalNullPayloadReturnsApplicationError() {
+        var result = assertDoesNotThrow(() -> translator.translate("null"));
+
+        var error = assertFailure(result);
+        assertEquals("VALIDATION_ERROR", error.code());
+        assertNotNull(error.message());
+    }
+
 
     private String loadContractPayload(String resourcePath) {
         try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
