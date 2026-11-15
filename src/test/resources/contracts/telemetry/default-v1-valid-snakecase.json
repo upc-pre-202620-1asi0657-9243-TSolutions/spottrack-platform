@@ -1,0 +1,7 @@
+{
+  "device_id": "dev-sensor-002",
+  "signal_type": "MOTION",
+  "duration_ms": 2000,
+  "timestamp": "2026-11-15T12:05:00Z",
+  "schema_version": 1
+}
