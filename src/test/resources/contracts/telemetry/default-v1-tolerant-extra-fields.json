@@ -1,0 +1,13 @@
+{
+  "deviceId": "dev-sensor-004",
+  "signalType": "MOTION",
+  "durationMs": 1100,
+  "timestamp": "2026-11-15T12:15:00Z",
+  "schemaVersion": 1,
+  "batteryLevel": 88,
+  "temperatureCelsius": 23.4,
+  "vendorMetadata": {
+    "hardwareRev": "REV-B",
+    "firmware": "1.0.4"
+  }
+}
