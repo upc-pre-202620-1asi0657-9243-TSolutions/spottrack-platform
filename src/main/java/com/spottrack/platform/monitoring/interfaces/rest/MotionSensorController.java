@@ -119,11 +119,11 @@ public class MotionSensorController {
     }
 
     @PostMapping
-    @Operation(summary = "Register a motion sensor", description = "Registers a new motion sensor watching a specific equipment.")
+    @Operation(summary = "Register a motion sensor", description = "Registers a new motion sensor watching a specific equipment. The optional payloadProfile selects how its MQTT payloads are translated; when omitted, the default format is used.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Motion sensor registered successfully",
                     content = @Content(schema = @Schema(implementation = MotionSensorResource.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid input data"),
+            @ApiResponse(responseCode = "400", description = "Invalid input data or unknown payloadProfile"),
             @ApiResponse(responseCode = "409", description = "Conflict - a motion sensor is already registered for this equipment")
     })
     public ResponseEntity<?> registerMotionSensor(@RequestBody RegisterMotionSensorResource resource) {
