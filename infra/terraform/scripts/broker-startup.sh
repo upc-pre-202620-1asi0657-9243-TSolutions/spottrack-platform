@@ -111,6 +111,9 @@ chown -R 1883:1883 "$DIR"
 chmod 700 "$DIR" "$DIR/certs"
 chmod 600 "$DIR/certs/server.key"
 
+# Docker may have restarted the old container (--restart=always) before this script: the state
+# file must not be edited while a broker holds it.
+docker rm -f mosquitto >/dev/null 2>&1 || true
 mkdir -p "$STATE"
 if [ ! -s "$DYNSEC_JSON" ]; then
   log "first boot: creating the dynamic-security state offline"
