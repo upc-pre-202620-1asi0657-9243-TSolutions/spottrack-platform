@@ -32,7 +32,7 @@ final class Qa01StompProbe implements AutoCloseable {
         this.session = session;
     }
 
-    /** /ws is not in the permitAll list of WebSecurityConfiguration, so the handshake carries the JWT as a Bearer header. */
+    /** The JWT goes on the STOMP CONNECT frame, where StompBearerAuthorizationInterceptor checks it, and on the handshake for older backends. */
     static Qa01StompProbe connect(String apiBaseUrl, String jwt, String sessionTrackerId) throws Exception {
         var scheduler = new ThreadPoolTaskScheduler();
         scheduler.setThreadNamePrefix("qa01-stomp-");
@@ -54,7 +54,9 @@ final class Qa01StompProbe implements AutoCloseable {
         var handshake = new WebSocketHttpHeaders();
         handshake.add("Authorization", "Bearer " + jwt);
         var webSocketUrl = apiBaseUrl.replaceFirst("^http", "ws").replaceAll("/+$", "") + "/ws/websocket";
-        var session = client.connectAsync(webSocketUrl, handshake, new StompHeaders(), new StompSessionHandlerAdapter() {
+        var connectHeaders = new StompHeaders();
+        connectHeaders.add("Authorization", "Bearer " + jwt);
+        var session = client.connectAsync(webSocketUrl, handshake, connectHeaders, new StompSessionHandlerAdapter() {
                     @Override
                     public void handleException(StompSession s, StompCommand c, StompHeaders h, byte[] p, Throwable e) {
                         System.err.println("STOMP: frame error: " + e);
