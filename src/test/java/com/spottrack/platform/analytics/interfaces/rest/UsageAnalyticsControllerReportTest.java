@@ -189,7 +189,7 @@ class UsageAnalyticsControllerReportTest {
     }
 
     private static UsageReport report(String gymName, String branchName) {
-        var heatmap = new UsageHeatmap(FROM, TO, 6, 22, 0, 0, 0, null, 0, List.of(), List.of());
+        var heatmap = new UsageHeatmap(FROM, TO, 6, 22, 0, 0, 0, null, 0, List.of(), List.of(), List.of(), 0, 0);
         return new UsageReport(gymName, branchName, LocalDateTime.of(2026, 10, 28, 9, 30), heatmap, Map.of());
     }
 

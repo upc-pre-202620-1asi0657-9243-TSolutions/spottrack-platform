@@ -2,6 +2,7 @@ package com.spottrack.platform.analytics.application.internal.queryservices;
 
 import com.spottrack.platform.analytics.domain.model.aggregates.UsageSession;
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageHeatmapQuery;
+import com.spottrack.platform.analytics.domain.model.valueobjects.DailyUsage;
 import com.spottrack.platform.analytics.domain.model.valueobjects.EquipmentUsage;
 import com.spottrack.platform.analytics.domain.model.valueobjects.HourlyOccupancy;
 import com.spottrack.platform.analytics.domain.repositories.UsageSessionRepository;
@@ -13,6 +14,7 @@ import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -76,6 +78,38 @@ class UsageAnalyticsQueryServiceImplTest {
         assertEquals(0.0, heatmap.occupancyRate());
         assertNull(heatmap.peakHour());
         heatmap.equipment().forEach(e -> assertEquals(0.0, e.heat()));
+    }
+
+    @Test
+    void splitsUsageByDayOfWeekForTheWindowAndTheOneBefore() {
+        var monday = DAY; // 2026-01-05 is a Monday
+        session("A", monday.atTime(8, 0), monday.atTime(9, 0));
+        session("A", monday.plusDays(2).atTime(10, 0), monday.plusDays(2).atTime(10, 30));
+        session("B", monday.plusDays(4).atTime(23, 30), monday.plusDays(5).atTime(0, 15)); // crosses midnight
+        session("B", monday.minusDays(7).atTime(8, 0), monday.minusDays(7).atTime(8, 45)); // previous week
+
+        var heatmap = service.handle(new GetUsageHeatmapQuery("gym", null, monday, monday.plusDays(6)));
+
+        assertEquals(7, heatmap.daily().size());
+        assertEquals(new DailyUsage(DayOfWeek.MONDAY, 60.0, 45.0), heatmap.daily().get(0));
+        assertEquals(new DailyUsage(DayOfWeek.TUESDAY, 0.0, 0.0), heatmap.daily().get(1));
+        assertEquals(new DailyUsage(DayOfWeek.WEDNESDAY, 30.0, 0.0), heatmap.daily().get(2));
+        assertEquals(new DailyUsage(DayOfWeek.FRIDAY, 30.0, 0.0), heatmap.daily().get(4));
+        assertEquals(new DailyUsage(DayOfWeek.SATURDAY, 15.0, 0.0), heatmap.daily().get(5));
+        assertEquals(0, heatmap.inactiveEquipmentCount());
+        assertEquals(1, heatmap.previousInactiveEquipmentCount(), "A had no use the week before");
+    }
+
+    @Test
+    void equipmentWithoutHistoryCountsAsInactiveInBothWindows() {
+        var heatmap = service.handle(new GetUsageHeatmapQuery("gym", null, DAY, DAY));
+
+        assertEquals(2, heatmap.inactiveEquipmentCount(), "decommissioned equipment is left out");
+        assertEquals(2, heatmap.previousInactiveEquipmentCount());
+        heatmap.daily().forEach(d -> {
+            assertEquals(0.0, d.activeMinutes());
+            assertEquals(0.0, d.previousActiveMinutes());
+        });
     }
 
     private void session(String equipmentId, LocalDateTime start, LocalDateTime end) {

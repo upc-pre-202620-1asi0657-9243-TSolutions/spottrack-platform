@@ -261,7 +261,7 @@ class RelocationInsightsQueryServiceImplTest {
         equipment.add(equipment(new Machine("decommissioned-" + id, 0, 0, EquipmentStatus.DECOMMISSIONED)));
         when(gymContextFacade.findEquipmentsByBranchId(id)).thenReturn(equipment);
         when(usageService.handle(new GetUsageHeatmapQuery(GYM, id, FROM, TO))).thenReturn(
-                new UsageHeatmap(FROM, TO, 6, 22, machines.length, rate, 0, null, 0, List.of(), usage));
+                new UsageHeatmap(FROM, TO, 6, 22, machines.length, rate, 0, null, 0, List.of(), usage, List.of(), 0, 0));
     }
 
     private static Machine machine(String id, double utilization) {

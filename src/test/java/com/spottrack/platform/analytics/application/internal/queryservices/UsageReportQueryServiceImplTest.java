@@ -44,7 +44,7 @@ class UsageReportQueryServiceImplTest {
         usageService = mock(UsageAnalyticsQueryService.class);
         gymContextFacade = mock(GymContextFacade.class);
         service = new UsageReportQueryServiceImpl(usageService, gymContextFacade);
-        heatmap = new UsageHeatmap(FROM, TO, 6, 22, 1, 10, 5, null, 0, List.of(), List.of());
+        heatmap = new UsageHeatmap(FROM, TO, 6, 22, 1, 10, 5, null, 0, List.of(), List.of(), List.of(), 0, 0);
         when(usageService.handle(any(GetUsageHeatmapQuery.class))).thenReturn(heatmap);
         rower = new Equipment(EquipmentStatus.AVAILABLE, "Remo", "R-1", new ManufacturerId("m-1"),
                 BigDecimal.TEN, "USD", new ZoneId("zone-1"));

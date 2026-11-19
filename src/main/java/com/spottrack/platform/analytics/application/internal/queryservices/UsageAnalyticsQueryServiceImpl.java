@@ -3,6 +3,7 @@ package com.spottrack.platform.analytics.application.internal.queryservices;
 import com.spottrack.platform.analytics.application.queryservices.UsageAnalyticsQueryService;
 import com.spottrack.platform.analytics.domain.model.aggregates.UsageSession;
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageHeatmapQuery;
+import com.spottrack.platform.analytics.domain.model.valueobjects.DailyUsage;
 import com.spottrack.platform.analytics.domain.model.valueobjects.EquipmentUsage;
 import com.spottrack.platform.analytics.domain.model.valueobjects.HourlyOccupancy;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
@@ -13,11 +14,13 @@ import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +32,8 @@ import java.util.Map;
  *   <li>Hourly occupancy = the same ratio restricted to one hour of the day across every day.</li>
  *   <li>Heat = an equipment's minutes of use ÷ the busiest equipment's, so the map always
  *       spreads from cold to hot within the selected scope.</li>
+ *   <li>Daily usage = minutes of use per day of the week, for the window and the one before it.</li>
+ *   <li>Inactive equipment = equipment with no minutes of use in the window (and in the one before it).</li>
  * </ul>
  * Decommissioned equipment is left out: it can't be used, so it would only dilute the rates.
  */
@@ -80,10 +85,52 @@ public class UsageAnalyticsQueryServiceImpl implements UsageAnalyticsQueryServic
                 .filter(h -> h.occupancyRate() > 0)
                 .max((a, b) -> Double.compare(a.occupancyRate(), b.occupancyRate()));
 
+        var usage = equipmentUsage(equipment, current, from, min(to, now));
+        var inactive = (int) usage.stream().filter(u -> u.activeMinutes() == 0).count();
+        var previousInactive = inactiveCount(equipmentIds, sessions, previousFrom, min(from, now));
         return new UsageHeatmap(query.from(), query.to(), openingHour, closingHour, equipment.size(),
                 occupancy, previousOccupancy,
                 peak.map(HourlyOccupancy::hour).orElse(null), peak.map(HourlyOccupancy::occupancyRate).orElse(0.0),
-                hourly, equipmentUsage(equipment, current, from, min(to, now)));
+                hourly, usage,
+                dailyUsage(sessions, from, min(to, now), previousFrom, min(from, now)),
+                inactive, previousInactive);
+    }
+
+    private static List<DailyUsage> dailyUsage(List<UsageSession> sessions, LocalDateTime from, LocalDateTime to,
+                                               LocalDateTime previousFrom, LocalDateTime previousTo) {
+        var current = minutesByDayOfWeek(sessions, from, to);
+        var previous = minutesByDayOfWeek(sessions, previousFrom, previousTo);
+        var result = new ArrayList<DailyUsage>();
+        for (var day : DayOfWeek.values()) {
+            result.add(new DailyUsage(day, round(current[day.ordinal()]), round(previous[day.ordinal()])));
+        }
+        return result;
+    }
+
+    /** Minutes of use inside [from, to), split by the day of the week they happened on (index = DayOfWeek.ordinal). */
+    private static double[] minutesByDayOfWeek(List<UsageSession> sessions, LocalDateTime from, LocalDateTime to) {
+        var minutes = new double[7];
+        if (!to.isAfter(from)) return minutes;
+        for (var session : sessions) {
+            var start = max(session.getStartedAt(), from);
+            var end = min(session.getEndedAt(), to);
+            for (var day = start.toLocalDate(); day.atStartOfDay().isBefore(end); day = day.plusDays(1)) {
+                minutes[day.getDayOfWeek().ordinal()] +=
+                        overlapMinutes(day.atStartOfDay(), day.plusDays(1).atStartOfDay(), start, end);
+            }
+        }
+        return minutes;
+    }
+
+    /** Equipment of the scope with no minutes of use inside [from, to); all of it when the window is empty. */
+    private static int inactiveCount(List<String> equipmentIds, List<UsageSession> sessions,
+                                     LocalDateTime from, LocalDateTime to) {
+        if (!to.isAfter(from)) return equipmentIds.size();
+        var used = new HashSet<String>();
+        for (var session : sessions) {
+            if (session.minutesWithin(from, to) > 0) used.add(session.getEquipmentId());
+        }
+        return (int) equipmentIds.stream().filter(id -> !used.contains(id)).count();
     }
 
     private List<EquipmentUsage> equipmentUsage(List<Equipment> equipment, List<UsageSession> sessions,

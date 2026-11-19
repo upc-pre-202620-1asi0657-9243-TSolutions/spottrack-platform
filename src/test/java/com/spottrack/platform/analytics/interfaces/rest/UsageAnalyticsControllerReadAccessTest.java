@@ -126,7 +126,7 @@ class UsageAnalyticsControllerReadAccessTest {
 
     private static UsageHeatmap heatmap() {
         var day = LocalDate.of(2026, 1, 5);
-        return new UsageHeatmap(day, day, 6, 22, 0, 0, 0, null, 0, List.of(), List.of());
+        return new UsageHeatmap(day, day, 6, 22, 0, 0, 0, null, 0, List.of(), List.of(), List.of(), 0, 0);
     }
 
     private static Authentication client() {
