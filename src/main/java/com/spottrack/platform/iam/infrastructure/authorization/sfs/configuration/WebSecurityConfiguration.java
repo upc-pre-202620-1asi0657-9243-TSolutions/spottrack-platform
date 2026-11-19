@@ -63,7 +63,10 @@ public class WebSecurityConfiguration {
                                 "/api/v1/register-business",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                // Browsers can't set headers on a WebSocket handshake: the JWT is checked
+                                // on the STOMP CONNECT frame by StompBearerAuthorizationInterceptor instead.
+                                "/ws/**"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(bearerAuthorizationRequestFilter,
