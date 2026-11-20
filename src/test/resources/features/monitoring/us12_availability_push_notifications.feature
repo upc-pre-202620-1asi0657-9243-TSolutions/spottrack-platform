@@ -1,4 +1,4 @@
-@US12 @monitoring @wip
+@US12 @monitoring
 Feature: Availability push notifications
   As a frequent client
   I want to activate a notification bell on a machine
