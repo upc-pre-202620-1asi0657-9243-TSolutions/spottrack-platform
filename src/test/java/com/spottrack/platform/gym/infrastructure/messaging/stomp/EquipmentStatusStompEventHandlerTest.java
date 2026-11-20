@@ -36,7 +36,7 @@ class EquipmentStatusStompEventHandlerTest {
     void publishesTheNewStatusOnTheTopicOfTheGymThatOwnsTheEquipment() {
         when(gymContextFacade.resolveGymIdForEquipment("eq-1")).thenReturn(Optional.of("gym-1"));
 
-        handler.on(new EquipmentStatusUpdatedEvent("eq-1", EquipmentStatus.OCCUPIED));
+        handler.on(new EquipmentStatusUpdatedEvent("eq-1", EquipmentStatus.OCCUPIED, EquipmentStatus.AVAILABLE));
 
         var message = ArgumentCaptor.forClass(Object.class);
         verify(messagingTemplate).convertAndSend(eq("/topic/gyms/gym-1/equipment"), message.capture());
@@ -51,7 +51,7 @@ class EquipmentStatusStompEventHandlerTest {
     void skipsEquipmentThatIsNotPlacedInAnyGym() {
         when(gymContextFacade.resolveGymIdForEquipment("eq-orphan")).thenReturn(Optional.empty());
 
-        handler.on(new EquipmentStatusUpdatedEvent("eq-orphan", EquipmentStatus.AVAILABLE));
+        handler.on(new EquipmentStatusUpdatedEvent("eq-orphan", EquipmentStatus.AVAILABLE, EquipmentStatus.OCCUPIED));
 
         verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
     }

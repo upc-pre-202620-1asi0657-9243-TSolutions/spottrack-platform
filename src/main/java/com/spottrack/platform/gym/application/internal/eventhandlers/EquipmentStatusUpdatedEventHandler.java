@@ -22,6 +22,6 @@ public class EquipmentStatusUpdatedEventHandler {
     @EventListener
     public void on(EquipmentStatusUpdatedEvent event) {
         eventPublisher.publishEvent(
-                new EquipmentStatusUpdatedIntegrationEvent(event.equipmentId(), event.status()));
+                new EquipmentStatusUpdatedIntegrationEvent(event.equipmentId(), event.status(), event.previousStatus()));
     }
 }
