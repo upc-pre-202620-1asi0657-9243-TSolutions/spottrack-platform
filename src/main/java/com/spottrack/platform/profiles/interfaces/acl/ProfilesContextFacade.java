@@ -1,5 +1,7 @@
 package com.spottrack.platform.profiles.interfaces.acl;
 
+import java.util.Optional;
+
 public interface ProfilesContextFacade {
     Long fetchClientIdByEmail(String email);
     Long fetchAdminIdByEmail(String email);
@@ -31,6 +33,11 @@ public interface ProfilesContextFacade {
      * or their profile is incomplete.
      */
     String fetchClientNameById(Long clientId);
+
+    /**
+     * Returns the email (the account username) of the client, or empty if no client with that id exists.
+     */
+    Optional<String> fetchClientEmailById(Long clientId);
 
     /**
      * Returns true if the client identified by clientId has an active association

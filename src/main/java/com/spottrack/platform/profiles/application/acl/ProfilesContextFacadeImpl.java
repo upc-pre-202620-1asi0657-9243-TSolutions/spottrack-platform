@@ -21,6 +21,8 @@ import com.spottrack.platform.shared.application.result.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Slf4j
 @Service
 public class ProfilesContextFacadeImpl implements ProfilesContextFacade {
@@ -140,6 +142,13 @@ public class ProfilesContextFacadeImpl implements ProfilesContextFacade {
         var clientOpt = clientQueryService.handle(
                 new com.spottrack.platform.profiles.domain.model.queries.GetClientByIdQuery(new ClientId(clientId)));
         return clientOpt.filter(c -> c.isProfileComplete()).map(c -> c.getFullName()).orElse(null);
+    }
+
+    @Override
+    public Optional<String> fetchClientEmailById(Long clientId) {
+        return clientQueryService.handle(
+                new com.spottrack.platform.profiles.domain.model.queries.GetClientByIdQuery(new ClientId(clientId)))
+                .map(c -> c.getEmailAddress());
     }
 
     @Override
