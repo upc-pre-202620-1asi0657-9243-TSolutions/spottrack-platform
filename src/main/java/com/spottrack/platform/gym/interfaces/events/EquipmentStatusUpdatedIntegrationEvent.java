@@ -9,8 +9,9 @@ import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
  * <p>Other bounded contexts (e.g. {@code analytics}, {@code monitoring}) must listen
  * to this event rather than to internal domain events.</p>
  *
- * @param equipmentId The identity of the equipment whose status changed.
- * @param status      The new status of the equipment.
+ * @param equipmentId    The identity of the equipment whose status changed.
+ * @param status         The new status of the equipment.
+ * @param previousStatus The status the equipment had before the change; null if unknown.
  */
-public record EquipmentStatusUpdatedIntegrationEvent(String equipmentId, EquipmentStatus status) {
+public record EquipmentStatusUpdatedIntegrationEvent(String equipmentId, EquipmentStatus status, EquipmentStatus previousStatus) {
 }

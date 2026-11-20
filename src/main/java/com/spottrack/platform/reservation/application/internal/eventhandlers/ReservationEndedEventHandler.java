@@ -10,16 +10,16 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Policy: [Reservation Ended] Send Notification to Alerts
+ * Policy: [Reservation Ended] Release the equipment
  *
  * Fires when a reservation ends (either by timer expiry or client explicitly ending it).
- * The Alerts bounded context should be notified so it can inform the client,
- * update dashboards, or log the session for reporting. It also republishes a
- * {@link ReservationEndedIntegrationEvent} so other contexts (e.g. monitoring) can
- * react without depending on the internal domain event.
+ * It republishes a {@link ReservationEndedIntegrationEvent} so other contexts (e.g. monitoring)
+ * can react without depending on the internal domain event, and requests the equipment to be
+ * marked AVAILABLE.
  *
- * The Alerts notification is stubbed — in a real system this would call the
- * Alerts service or publish a message.
+ * The clients waiting for the machine are not notified from here: the notification context
+ * reacts to the resulting equipment status change, which also covers releases that do not come
+ * from a reservation (sensor sessions, manual updates).
  */
 @Component
 public class ReservationEndedEventHandler {
@@ -34,8 +34,6 @@ public class ReservationEndedEventHandler {
 
     @EventListener
     public void on(ReservationEndedEvent event) {
-        // TODO: notify Alerts bounded context that the reservation ended
-        // e.g. alertsAclService.notifyReservationEnded(event.reservationId(), event.clientId())
         log.info("Policy fired — reservation {} ended for client {}, equipment {} is now free",
                 event.reservationId(), event.clientId(), event.equipmentId());
 

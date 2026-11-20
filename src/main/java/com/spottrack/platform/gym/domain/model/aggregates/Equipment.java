@@ -91,16 +91,18 @@ public class Equipment extends AbstractDomainAggregateRoot<Equipment> {
         if (this.status == EquipmentStatus.DECOMMISSIONED) {
             throw new IllegalStateException("gym.error.equipment.decommissionedIsTerminal");
         }
+        var previousStatus = this.status;
         this.status = EquipmentStatus.OUT_OF_SERVICE;
-        registerDomainEvent(new EquipmentStatusUpdatedEvent(this.id.uuid(), this.status));
+        registerDomainEvent(new EquipmentStatusUpdatedEvent(this.id.uuid(), this.status, previousStatus));
     }
 
     public void updateStatus(EquipmentStatus status){
         if (this.status == EquipmentStatus.DECOMMISSIONED) {
             throw new IllegalStateException("gym.error.equipment.decommissionedIsTerminal");
         }
+        var previousStatus = this.status;
         this.status = status;
-        registerDomainEvent(new EquipmentStatusUpdatedEvent(this.id.uuid(), this.status));
+        registerDomainEvent(new EquipmentStatusUpdatedEvent(this.id.uuid(), this.status, previousStatus));
     }
 
     public void relocateEquipment(ZoneId zoneId) {

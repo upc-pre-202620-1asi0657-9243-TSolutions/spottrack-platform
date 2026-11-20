@@ -1,6 +1,7 @@
 package com.spottrack.platform.reservation.application.acl;
 
 import com.spottrack.platform.reservation.application.queryservices.ReservationQueryService;
+import com.spottrack.platform.reservation.domain.model.queries.GetActiveReservationByEquipmentIdQuery;
 import com.spottrack.platform.reservation.domain.model.queries.GetReservationByUuidQuery;
 import com.spottrack.platform.reservation.interfaces.acl.ReservationContextFacade;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,12 @@ public class ReservationContextFacadeImpl implements ReservationContextFacade {
     @Override
     public Optional<Long> fetchClientIdByReservationId(String reservationId) {
         return reservationQueryService.handle(new GetReservationByUuidQuery(reservationId))
+                .map(reservation -> reservation.getClientId().clientId());
+    }
+
+    @Override
+    public Optional<Long> fetchActiveReservationClientIdByEquipmentId(String equipmentId) {
+        return reservationQueryService.handle(new GetActiveReservationByEquipmentIdQuery(equipmentId))
                 .map(reservation -> reservation.getClientId().clientId());
     }
 }

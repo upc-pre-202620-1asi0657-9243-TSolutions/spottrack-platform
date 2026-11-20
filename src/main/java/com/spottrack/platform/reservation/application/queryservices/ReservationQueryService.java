@@ -1,6 +1,7 @@
 package com.spottrack.platform.reservation.application.queryservices;
 
 import com.spottrack.platform.reservation.domain.model.aggregates.Reservation;
+import com.spottrack.platform.reservation.domain.model.queries.GetActiveReservationByEquipmentIdQuery;
 import com.spottrack.platform.reservation.domain.model.queries.GetAllReservationsQuery;
 import com.spottrack.platform.reservation.domain.model.queries.GetReservationByUuidQuery;
 import com.spottrack.platform.reservation.domain.model.queries.GetReservationsByClientIdQuery;
@@ -14,4 +15,5 @@ public interface ReservationQueryService {
     List<Reservation> handle(GetAllReservationsQuery query);
     Optional<Reservation> handle(GetReservationByUuidQuery query);
     List<Reservation> handle(GetReservationsByClientIdQuery query);
+    Optional<Reservation> handle(GetActiveReservationByEquipmentIdQuery query);
 }

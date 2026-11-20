@@ -3,9 +3,11 @@ package com.spottrack.platform.reservation.application.internal.queryserivces;
 
 import com.spottrack.platform.reservation.application.queryservices.ReservationQueryService;
 import com.spottrack.platform.reservation.domain.model.aggregates.Reservation;
+import com.spottrack.platform.reservation.domain.model.queries.GetActiveReservationByEquipmentIdQuery;
 import com.spottrack.platform.reservation.domain.model.queries.GetAllReservationsQuery;
 import com.spottrack.platform.reservation.domain.model.queries.GetReservationByUuidQuery;
 import com.spottrack.platform.reservation.domain.model.queries.GetReservationsByClientIdQuery;
+import com.spottrack.platform.reservation.domain.model.valueobjects.ReservationStatus;
 import com.spottrack.platform.reservation.domain.repositories.ReservationRepository;
 import org.springframework.stereotype.Service;
 
@@ -33,5 +35,10 @@ public class ReservationQueryServiceImpl implements ReservationQueryService {
     @Override
     public List<Reservation> handle(GetReservationsByClientIdQuery query) {
         return reservationRepository.findByClientId(query.clientId());
+    }
+
+    @Override
+    public Optional<Reservation> handle(GetActiveReservationByEquipmentIdQuery query) {
+        return reservationRepository.findByEquipmentIdAndStatus(query.equipmentId(), ReservationStatus.ACTIVE);
     }
 }
