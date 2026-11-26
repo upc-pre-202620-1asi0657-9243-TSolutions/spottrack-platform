@@ -11,7 +11,7 @@ public record SensorPairingResource(
         LocalDateTime expiresAt,
         @Schema(description = "Structured content of the QR")
         SensorPairingQrPayloadResource payload,
-        @Schema(description = "Exact JSON encoded in the QR", example = "{\"v\":1,\"deviceId\":\"...\"}")
+        @Schema(description = "Exact JSON encoded in the QR", example = "{\"v\":2,\"deviceId\":\"...\"}")
         String payloadJson,
         @Schema(description = "PNG image of the QR, Base64 encoded")
         String qrPngBase64

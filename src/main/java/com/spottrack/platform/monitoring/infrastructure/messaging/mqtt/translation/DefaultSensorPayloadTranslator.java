@@ -1,5 +1,6 @@
 package com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.translation;
 
+import com.spottrack.platform.monitoring.application.ports.PayloadProfileCatalog;
 import com.spottrack.platform.monitoring.infrastructure.messaging.mqtt.SensorSignalMessage;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
@@ -12,7 +13,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class DefaultSensorPayloadTranslator implements SensorPayloadTranslator {
 
-    public static final String PROFILE = "default";
+    public static final String PROFILE = PayloadProfileCatalog.DEFAULT_PROFILE;
 
     private final ObjectMapper objectMapper;
 

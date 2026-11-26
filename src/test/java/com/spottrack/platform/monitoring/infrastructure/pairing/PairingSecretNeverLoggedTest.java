@@ -19,6 +19,7 @@ import com.spottrack.platform.monitoring.testsupport.InMemorySensorPairingReposi
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import org.junit.jupiter.api.AfterEach;
+import org.springframework.transaction.support.TransactionOperations;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -71,7 +72,8 @@ class PairingSecretNeverLoggedTest {
         pairings = new InMemorySensorPairingRepository();
         service = new SensorPairingCommandServiceImpl(sensors, pairings, new LoggingBrokerCredentialProvisioner(),
                 new BCryptPairingSecretHasher(),
-                new SensorPairingSettings(Duration.ofMinutes(15), "mqtt.example.com:8883", CA), clock);
+                new SensorPairingSettings(Duration.ofMinutes(15), "mqtt.example.com:8883", CA),
+                profile -> true, TransactionOperations.withoutTransaction(), clock);
     }
 
     @AfterEach
@@ -149,7 +151,7 @@ class PairingSecretNeverLoggedTest {
     void issueCommandHasNoSecretToExpose() {
         var command = new IssueSensorPairingCommand(SENSOR_UUID);
 
-        assertEquals("IssueSensorPairingCommand[motionSensorId=" + SENSOR_UUID + "]", command.toString());
+        assertEquals("IssueSensorPairingCommand[motionSensorId=" + SENSOR_UUID + ", payloadProfile=null]", command.toString());
     }
 
     @Test

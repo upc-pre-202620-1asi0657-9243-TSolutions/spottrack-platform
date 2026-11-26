@@ -15,6 +15,7 @@ import com.spottrack.platform.monitoring.testsupport.InMemorySensorPairingReposi
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.transaction.support.TransactionOperations;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -78,6 +79,7 @@ class SensorPairingExpirySchedulerTest {
             provisioner = mock(BrokerCredentialProvisioner.class);
             var service = new SensorPairingCommandServiceImpl(mock(MotionSensorRepository.class), pairings, provisioner,
                     mock(PairingSecretHasher.class), new SensorPairingSettings(TTL, "h:8883", "a".repeat(64)),
+                    profile -> true, TransactionOperations.withoutTransaction(),
                     Clock.fixed(NOW.toInstant(ZoneOffset.UTC), ZoneOffset.UTC));
             scheduler = new SensorPairingExpiryScheduler(service);
         }

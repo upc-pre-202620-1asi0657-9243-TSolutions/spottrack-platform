@@ -4,6 +4,7 @@ import com.spottrack.platform.monitoring.application.commandServices.SensorPairi
 import com.spottrack.platform.monitoring.application.ports.BrokerCredentialProvisioner;
 import com.spottrack.platform.monitoring.application.ports.BrokerProvisioningException;
 import com.spottrack.platform.monitoring.application.ports.PairingSecretHasher;
+import com.spottrack.platform.monitoring.application.ports.PayloadProfileCatalog;
 import com.spottrack.platform.monitoring.application.ports.SensorPairingSettings;
 import com.spottrack.platform.monitoring.domain.model.aggregates.SensorPairing;
 import com.spottrack.platform.monitoring.domain.model.commands.ExpireDueSensorPairingsCommand;
@@ -19,11 +20,13 @@ import com.spottrack.platform.shared.application.result.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionOperations;
 
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Objects;
 
 @Service
 public class SensorPairingCommandServiceImpl implements SensorPairingCommandService {
@@ -35,6 +38,8 @@ public class SensorPairingCommandServiceImpl implements SensorPairingCommandServ
     private final BrokerCredentialProvisioner brokerCredentialProvisioner;
     private final PairingSecretHasher pairingSecretHasher;
     private final SensorPairingSettings settings;
+    private final PayloadProfileCatalog payloadProfileCatalog;
+    private final TransactionOperations transactionOperations;
     private final Clock clock;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -42,12 +47,16 @@ public class SensorPairingCommandServiceImpl implements SensorPairingCommandServ
                                            SensorPairingRepository sensorPairingRepository,
                                            BrokerCredentialProvisioner brokerCredentialProvisioner,
                                            PairingSecretHasher pairingSecretHasher,
-                                           SensorPairingSettings settings, Clock clock) {
+                                           SensorPairingSettings settings,
+                                           PayloadProfileCatalog payloadProfileCatalog,
+                                           TransactionOperations transactionOperations, Clock clock) {
         this.motionSensorRepository = motionSensorRepository;
         this.sensorPairingRepository = sensorPairingRepository;
         this.brokerCredentialProvisioner = brokerCredentialProvisioner;
         this.pairingSecretHasher = pairingSecretHasher;
         this.settings = settings;
+        this.payloadProfileCatalog = payloadProfileCatalog;
+        this.transactionOperations = transactionOperations;
         this.clock = clock;
     }
 
@@ -55,8 +64,17 @@ public class SensorPairingCommandServiceImpl implements SensorPairingCommandServ
     public Result<IssuedSensorPairing, ApplicationError> handle(IssueSensorPairingCommand command) {
         try {
             var sensorId = new MotionSensorId(command.motionSensorId());
-            if (motionSensorRepository.findByMotionSensorId(sensorId).isEmpty()) {
+            var found = motionSensorRepository.findByMotionSensorId(sensorId);
+            if (found.isEmpty()) {
                 return Result.failure(ApplicationError.notFound("MotionSensor", sensorId.uuid()));
+            }
+            var sensor = found.get();
+            // Checked before touching the brokers: an unknown profile must leave no account behind.
+            var requestedProfile = command.payloadProfile();
+            var assignsProfile = requestedProfile != null && !requestedProfile.isBlank();
+            if (assignsProfile && !payloadProfileCatalog.isSupported(requestedProfile)) {
+                return Result.failure(ApplicationError.validationError(
+                        "payloadProfile", "Unknown sensor payload profile '%s'".formatted(requestedProfile)));
             }
             try {
                 settings.requireConfigured();
@@ -74,23 +92,32 @@ public class SensorPairingCommandServiceImpl implements SensorPairingCommandServ
                 return Result.failure(ApplicationError.unexpected("Broker credential provisioning", e.getMessage()));
             }
 
+            var profileChanges = assignsProfile && !Objects.equals(requestedProfile, sensor.getPayloadProfile());
             try {
-                // The new secret already replaced the previous credential on the brokers.
-                for (var previous : sensorPairingRepository.findActiveByMotionSensorId(sensorId)) {
-                    previous.revoke();
-                    sensorPairingRepository.save(previous);
-                }
-                sensorPairingRepository.save(pairing);
+                transactionOperations.executeWithoutResult(status -> {
+                    if (profileChanges) {
+                        sensor.assignPayloadProfile(requestedProfile);
+                        motionSensorRepository.save(sensor);
+                    }
+                    // The new secret already replaced the previous credential on the brokers.
+                    for (var previous : sensorPairingRepository.findActiveByMotionSensorId(sensorId)) {
+                        previous.revoke();
+                        sensorPairingRepository.save(previous);
+                    }
+                    sensorPairingRepository.save(pairing);
+                });
             } catch (RuntimeException e) {
                 revokeQuietly(sensorId);
                 throw e;
             }
 
-            log.info("Issued a sensor pairing for device_id={} expiring at {}", sensorId.uuid(), pairing.getExpiresAt());
+            var profile = payloadProfileCatalog.effectiveProfile(assignsProfile ? requestedProfile : sensor.getPayloadProfile());
+            log.info("Issued a sensor pairing for device_id={} with profile={} expiring at {}",
+                    sensorId.uuid(), profile, pairing.getExpiresAt());
             var expiresAt = pairing.getExpiresAt();
             var payload = new SensorPairingQrPayload(SensorPairingQrPayload.VERSION, sensorId.uuid(), secret,
                     settings.host(), settings.port(), settings.normalizedCaSha256(),
-                    expiresAt.atZone(clock.getZone()).toEpochSecond());
+                    expiresAt.atZone(clock.getZone()).toEpochSecond(), profile);
             return Result.success(new IssuedSensorPairing(payload, expiresAt));
         } catch (IllegalArgumentException e) {
             return Result.failure(ApplicationError.validationError("MotionSensor", e.getMessage()));

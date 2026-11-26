@@ -54,6 +54,11 @@ public class MotionSensor extends AbstractDomainAggregateRoot<MotionSensor> {
         this.payloadProfile = normalizeProfile(command.payloadProfile());
     }
 
+    /** Changes the payload format the sensor publishes with; a null or blank profile means the default one. */
+    public void assignPayloadProfile(String payloadProfile) {
+        this.payloadProfile = normalizeProfile(payloadProfile);
+    }
+
     private static String normalizeProfile(String payloadProfile) {
         return payloadProfile == null || payloadProfile.isBlank() ? null : payloadProfile;
     }

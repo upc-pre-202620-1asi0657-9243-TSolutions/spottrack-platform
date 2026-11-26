@@ -48,8 +48,10 @@ variable "extra_app_env" {
   default = {}
 }
 
-# MQTT user per sensor (username = device_id). Add a sensor here and re-apply
-# so it can connect to the brokers; it gets its own generated password.
+# LEGACY (mainly for mqtt_auth_mode = "static"): MQTT user per sensor (username = device_id).
+# Add a sensor here and re-apply so it can connect to the brokers; it gets its own generated
+# password (output mqtt_device_credentials). With dynsec, pair the sensor by QR instead.
+# Kept because rolling back to static brokers depends on these accounts.
 variable "mqtt_device_ids" {
   type    = list(string)
   default = []

@@ -27,7 +27,7 @@ public class SensorPayloadTranslatorSelector implements PayloadProfileCatalog {
     /** A null or blank profile means the sensor uses SpotTrack's own format. */
     public static String resolveProfile(String payloadProfile) {
         return payloadProfile == null || payloadProfile.isBlank()
-                ? DefaultSensorPayloadTranslator.PROFILE
+                ? PayloadProfileCatalog.DEFAULT_PROFILE
                 : payloadProfile;
     }
 

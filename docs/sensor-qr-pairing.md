@@ -4,12 +4,13 @@
 
 Un administrador registra un sensor de movimiento y obtiene un **QR** que contiene todo lo que el dispositivo necesita para conectarse al broker MQTT y publicar, sin configuración manual.
 
-Este documento describe el flujo completo. La implementación se entrega en dos PR:
+Este documento describe el flujo completo. La implementación se entrega en tres PR:
 
 | PR | Contenido |
 |---|---|
 | **PR 1** | Endpoint de emisión, agregado `SensorPairing`, QR, expiración, marca `USED` al primer heartbeat. El aprovisionamiento en los brokers es un **no-op** (`pairing.provisioner.mode=noop`): solo registra en el log, sin el secreto. |
-| **PR 2** (este) | Adaptador real de aprovisionamiento en los 3 brokers (plugin `dynamic-security` de Mosquitto), script de arranque de los brokers y cambios en `infra/terraform`. Procedimiento de activación en [`infra/README.md`](../infra/README.md#activating-pairing-dynsec). |
+| **PR 2** | Adaptador real de aprovisionamiento en los 3 brokers (plugin `dynamic-security` de Mosquitto), script de arranque de los brokers y cambios en `infra/terraform`. Procedimiento de activación en [`infra/README.md`](../infra/README.md#activating-pairing-dynsec). |
+| **PR 3** (este) | Asignación del `payloadProfile` al emparejar (CON-9) y QR **v2** con el campo `profile`. Las credenciales de Terraform (`mqtt_device_credentials`, `mqtt_device_ids`) quedan como legacy del modo `static`. El cliente que lee el QR (simulador) va en su propio PR en `spottrack-iot-simulator`. |
 
 > Con `pairing.provisioner.mode=noop` (el valor por defecto) el QR que se emite **no es utilizable contra los brokers reales**: la credencial no se crea en ellos. Para que lo sea hacen falta brokers con `mqtt_auth_mode=dynsec` **y** `pairing.provisioner.mode=dynsec`; la app falla al arrancar si se pide el segundo sin la configuración completa.
 
@@ -24,8 +25,9 @@ sequenceDiagram
     participant B as Brokers Mosquitto (x3)
     participant Dev as Dispositivo (sensor)
 
-    Admin->>API: POST /api/v1/monitoring/motion-sensors/{id}/pairing (JWT ADMIN)
+    Admin->>API: POST /api/v1/monitoring/motion-sensors/{id}/pairing (JWT ADMIN), body opcional {payloadProfile}
     API->>DB: ¿existe el sensor?
+    API->>API: ¿payloadProfile soportado? (si no: 400, no se toca ningún broker)
     API->>API: genera secreto (SecureRandom, 24 bytes) y su hash
     API->>B: provision(deviceId, secreto) — todo o nada en los 3 brokers
     alt aprovisionamiento falla en algún broker
@@ -33,8 +35,7 @@ sequenceDiagram
         API-->>Admin: 500 UNEXPECTED_ERROR (nada queda persistido)
     else aprovisionamiento correcto
         B-->>API: ok
-        API->>DB: pairing anterior del sensor → REVOKED
-        API->>DB: nuevo SensorPairing PENDING (secretHash, expiresAt = ahora + TTL)
+        API->>DB: (una transacción) payloadProfile del sensor, pairing anterior → REVOKED,<br/>nuevo SensorPairing PENDING (secretHash, expiresAt = ahora + TTL)
         API-->>Admin: 200 {payload, payloadJson, qrPngBase64} (Cache-Control: no-store)
     end
 
@@ -42,6 +43,7 @@ sequenceDiagram
     Dev->>Dev: valida el JSON (v, campos, exp)
     Dev->>B: CONNECT ssl://host:8883, usuario=deviceId, clave=secret, CA verificada con caSha256
     Dev->>B: PUBLISH sensors/{deviceId}/heartbeat
+    Dev->>B: PUBLISH sensors/{deviceId}/signal (formato del profile del QR)
     B-->>API: heartbeat (suscripción del backend)
     API->>DB: SensorPairing PENDING → USED (usedAt)
     Note over API,B: La credencial se queda tras USED. Solo se revoca al regenerar el pairing.
@@ -53,23 +55,26 @@ sequenceDiagram
     end
 ```
 
-## 3. Formato del QR v1
+## 3. Formato del QR v2
 
 El QR contiene un JSON compacto UTF-8:
 
 ```json
-{"v":1,"deviceId":"066dd222-31ed-496a-bddf-e4711b0ee957","secret":"Zk3Qm...32 caracteres","host":"34.123.45.67","port":8883,"caSha256":"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08","exp":1790000000}
+{"v":2,"deviceId":"066dd222-31ed-496a-bddf-e4711b0ee957","secret":"Zk3Qm...32 caracteres","host":"34.123.45.67","port":8883,"caSha256":"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08","exp":1790000000,"profile":"compact-emulator"}
 ```
+
+> **Cambio v1 → v2.** v2 añade `profile` al final; el resto de campos y su orden no cambian. No hay compatibilidad con v1: el backend solo emite v2 y ningún cliente leía v1 todavía. Un dispositivo que solo conozca v1 rechazará el QR por la versión.
 
 | Campo | Tipo | Descripción |
 |---|---|---|
-| `v` | int | Versión del formato. Esta es la `1`. Un dispositivo debe rechazar versiones que no conozca. |
+| `v` | int | Versión del formato. Esta es la `2`. Un dispositivo debe rechazar versiones que no conozca. |
 | `deviceId` | string | `motionSensorId` (UUID). Es el **usuario MQTT** y parte de los topics. |
 | `secret` | string | Contraseña MQTT: 24 bytes aleatorios en Base64 URL sin relleno (32 caracteres). |
 | `host` | string | Host del balanceador de brokers (`mqtt.public-endpoint`). |
 | `port` | int | Puerto TLS, `8883`. |
 | `caSha256` | string | SHA-256 en hexadecimal minúsculas del certificado de la CA, en DER. |
 | `exp` | int | Epoch en segundos (UTC) hasta el que el QR es válido **si no se ha escaneado**. |
+| `profile` | string | `payloadProfile` con el que el dispositivo debe publicar en `signal` (p. ej. `default`, `compact-emulator`). Siempre presente: si el sensor no tiene uno asignado, `default`. |
 
 La CA **no va en el QR**: el dispositivo debe tenerla (firmware o descarga) y comprobar que su huella coincide con `caSha256` antes de confiar en ella. Para obtener la huella:
 
@@ -82,11 +87,21 @@ Topics, derivados del `deviceId` (el ACL del broker solo permite escribir en los
 - `sensors/{deviceId}/signal`
 - `sensors/{deviceId}/heartbeat`
 
-El formato del payload de `signal` depende del `payloadProfile` del sensor (ver `interoperability-signal-equivalences.md`).
+El formato del payload de `signal` depende del `payloadProfile` del sensor (ver `interoperability-signal-equivalences.md`), que el QR entrega en `profile`.
 
 ## 4. Endpoint de emisión
 
 `POST /api/v1/monitoring/motion-sensors/{motionSensorId}/pairing`, solo rol **ADMIN**.
+
+Body opcional (`Content-Type: application/json`):
+
+```json
+{ "payloadProfile": "compact-emulator" }
+```
+
+- Con `payloadProfile`: se valida contra los perfiles soportados (`PayloadProfileCatalog`) **antes** de crear la cuenta en los brokers y, si el pairing sale bien, se asigna al sensor en la misma transacción que guarda el pairing.
+- Sin body, `{}`, `null` o en blanco: el sensor conserva su perfil actual.
+- En ambos casos el QR lleva en `profile` el perfil efectivo.
 
 Respuesta `200`:
 
@@ -94,8 +109,8 @@ Respuesta `200`:
 {
   "motionSensorId": "066dd222-...",
   "expiresAt": "2026-11-15T12:15:00",
-  "payload": { "v": 1, "deviceId": "...", "secret": "...", "host": "...", "port": 8883, "caSha256": "...", "exp": 1790000000 },
-  "payloadJson": "{\"v\":1,...}",
+  "payload": { "v": 2, "deviceId": "...", "secret": "...", "host": "...", "port": 8883, "caSha256": "...", "exp": 1790000000, "profile": "compact-emulator" },
+  "payloadJson": "{\"v\":2,...}",
   "qrPngBase64": "iVBORw0KGgo..."
 }
 ```
@@ -110,11 +125,12 @@ La respuesta, también la de error, lleva `Cache-Control: no-store`. El secreto 
 | Token sin rol ADMIN | `403` |
 | Sensor inexistente | `404 MOTIONSENSOR_NOT_FOUND` |
 | `motionSensorId` en blanco | `400 VALIDATION_ERROR` |
+| `payloadProfile` desconocido | `400 VALIDATION_ERROR` (igual que el registro del sensor). No se toca ningún broker, no se persiste nada y el sensor conserva su perfil |
 | `mqtt.public-endpoint` o `mqtt.ca-sha256` sin configurar o mal formados (ver sección 5) | `422 BUSINESS_RULE_VIOLATION`; `details` indica la propiedad (p. ej. `mqtt.public-endpoint is not configured (expected host:port)`). No se toca ningún broker ni se persiste nada |
 | Falla el aprovisionamiento en los brokers | `500 UNEXPECTED_ERROR`; no se persiste nada |
-| Falla la base de datos después de aprovisionar | `500 UNEXPECTED_ERROR`; se intenta un `revoke` del dispositivo (ver riesgo 10) |
+| Falla la base de datos después de aprovisionar | `500 UNEXPECTED_ERROR`; se deshace la transacción (perfil y pairing) y se intenta un `revoke` del dispositivo (ver riesgo 10) |
 
-El sensor se comprueba antes que la configuración: un sensor inexistente responde `404` aunque falte configuración.
+Orden de las comprobaciones: sensor (`404`), `payloadProfile` (`400`), configuración (`422`), brokers (`500`). Un sensor inexistente responde `404` aunque el perfil sea desconocido o falte configuración.
 
 ## 5. Configuración
 
@@ -199,7 +215,7 @@ Tras un pairing correcto, el dispositivo debe guardar las credenciales en almace
 1. **`permitAll` en `/api/v1/monitoring/motion-sensors/**`.** `WebSecurityConfiguration` deja ese patrón sin autenticación, por lo que hoy cualquiera puede registrar sensores (`POST`) y listarlos. Los endpoints de pairing quedan excluidos de ese `permitAll` mediante una regla `hasRole('ADMIN')` sobre `/api/v1/monitoring/motion-sensors/*/pairing/**`, colocada antes del `permitAll`, y además llevan `@PreAuthorize`; el resto del patrón sigue abierto. Cerrarlo se deja para otro cambio porque puede romper al simulador IoT.
 2. **`GET /api/v1/monitoring/motion-sensors/devices` publica los `device_id`**, que son los usuarios MQTT. Conocer el usuario es la mitad de la credencial.
 3. **Una credencial `USED` no caduca.** Un QR filtrado tras el primer escaneo sigue siendo un secreto válido hasta que un administrador regenere el pairing. El TTL solo limita la ventana *antes* del primer uso.
-4. **Cualquier ADMIN puede emitir el pairing de cualquier sensor.** No se comprueba que el equipo pertenezca a su gimnasio, de modo que un administrador puede rotar la credencial de un sensor ajeno y dejarlo sin conexión.
+4. **Cualquier ADMIN puede emitir el pairing de cualquier sensor.** No se comprueba que el equipo pertenezca a su gimnasio, de modo que un administrador puede rotar la credencial de un sensor ajeno y dejarlo sin conexión, o cambiarle el `payloadProfile`. **Sigue abierto**: la verificación de propiedad va en otro ticket.
 5. **El QR es un secreto en pantalla.** Puede quedar en capturas o fotos. Hay que mostrarlo solo a quien vaya a escanearlo, y regenerarlo si se sospecha de filtración.
 6. **Desfase de reloj.** `exp` se calcula con el reloj del servidor; un dispositivo con la hora muy desajustada podría rechazar un QR válido o aceptar uno vencido (el broker lo rechazará de todos modos).
 7. **Brokers independientes sin bridging.** El balanceador reparte a cualquiera de los 3, así que una credencial presente solo en algunos provoca fallos intermitentes. De ahí la semántica todo-o-nada del puerto `BrokerCredentialProvisioner`. El estado del plugin vive en `/var/lib/mosquitto-dynsec` de cada VM: sobrevive a un `reset`/reinicio, pero **se pierde si se recrea la VM** (`taint`, cambio de disco). Esta entrega no reaprovisiona automáticamente a los sensores emparejados tras recrear un broker: hay que regenerar sus pairing (queda una cuenta ausente en ese broker y los dispositivos que caigan en él serán rechazados).

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.springframework.transaction.support.TransactionOperations;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -30,6 +31,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -53,6 +55,7 @@ class SensorPairingCommandServiceImplTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 15, 12, 0);
     private static final Duration TTL = Duration.ofMinutes(15);
     private static final String CA = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+    private static final Set<String> KNOWN_PROFILES = Set.of("default", "compact-emulator");
 
     private MotionSensorRepository sensors;
     private SensorPairingRepository pairings;
@@ -74,12 +77,20 @@ class SensorPairingCommandServiceImplTest {
     }
 
     private SensorPairingCommandServiceImpl serviceWith(SensorPairingSettings settings) {
-        return new SensorPairingCommandServiceImpl(sensors, pairings, provisioner, hasher, settings, clock);
+        return new SensorPairingCommandServiceImpl(sensors, pairings, provisioner, hasher, settings,
+                profile -> KNOWN_PROFILES.contains(profile == null || profile.isBlank() ? "default" : profile),
+                TransactionOperations.withoutTransaction(), clock);
     }
 
     private void givenSensor() {
-        when(sensors.findByMotionSensorId(SENSOR)).thenReturn(Optional.of(
-                new MotionSensor(1L, SENSOR, new EquipmentId("eq-1"), NOW, false, NOW, null, null)));
+        givenSensorWithProfile(null);
+    }
+
+    private MotionSensor givenSensorWithProfile(String profile) {
+        var sensor = new MotionSensor(1L, SENSOR, new EquipmentId("eq-1"), NOW, false, NOW, null, profile);
+        when(sensors.findByMotionSensorId(SENSOR)).thenReturn(Optional.of(sensor));
+        when(sensors.save(any(MotionSensor.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        return sensor;
     }
 
     private IssuedSensorPairing issue() {
@@ -100,7 +111,7 @@ class SensorPairingCommandServiceImplTest {
         var issued = issue();
 
         var payload = issued.qrPayload();
-        assertEquals(1, payload.v());
+        assertEquals(2, payload.v());
         assertEquals(SENSOR_UUID, payload.deviceId());
         assertEquals("34.123.45.67", payload.host());
         assertEquals(8883, payload.port());
@@ -229,6 +240,101 @@ class SensorPairingCommandServiceImplTest {
 
         assertEquals("UNEXPECTED_ERROR", errorOf(result).code());
         verify(provisioner).revoke(SENSOR_UUID);
+    }
+
+    // --- payload profile ---
+
+    @Test
+    void withoutAProfileTheQrCarriesTheDefaultOneForASensorThatHasNone() {
+        givenSensor();
+
+        assertEquals("default", issue().qrPayload().profile());
+        verify(sensors, never()).save(any());
+    }
+
+    @Test
+    void withoutAProfileTheQrCarriesTheProfileTheSensorAlreadyHas() {
+        givenSensorWithProfile("compact-emulator");
+
+        assertEquals("compact-emulator", issue().qrPayload().profile());
+        verify(sensors, never()).save(any());
+    }
+
+    @Test
+    void aRequestedProfileIsAssignedToTheSensorAndGoesInTheQr() {
+        var sensor = givenSensorWithProfile(null);
+
+        var result = service.handle(new IssueSensorPairingCommand(SENSOR_UUID, "compact-emulator"));
+
+        var issued = ((Result.Success<IssuedSensorPairing, ApplicationError>) assertInstanceOf(Result.Success.class, result)).value();
+        assertEquals("compact-emulator", issued.qrPayload().profile());
+        assertEquals("compact-emulator", sensor.getPayloadProfile());
+        verify(sensors).save(sensor);
+    }
+
+    @Test
+    void theProfileIsSavedOnlyAfterTheBrokersAccepted() {
+        var sensor = givenSensorWithProfile(null);
+
+        service.handle(new IssueSensorPairingCommand(SENSOR_UUID, "compact-emulator"));
+
+        InOrder order = inOrder(provisioner, sensors, pairings);
+        order.verify(provisioner).provision(anyString(), anyString());
+        order.verify(sensors).save(sensor);
+        order.verify(pairings).save(any(SensorPairing.class));
+    }
+
+    @Test
+    void requestingTheProfileTheSensorAlreadyHasDoesNotSaveTheSensor() {
+        givenSensorWithProfile("compact-emulator");
+
+        service.handle(new IssueSensorPairingCommand(SENSOR_UUID, "compact-emulator"));
+
+        verify(sensors, never()).save(any());
+    }
+
+    @Test
+    void aBlankProfileKeepsTheOneTheSensorHas() {
+        var sensor = givenSensorWithProfile("compact-emulator");
+
+        var result = service.handle(new IssueSensorPairingCommand(SENSOR_UUID, "  "));
+
+        assertInstanceOf(Result.Success.class, result);
+        assertEquals("compact-emulator", sensor.getPayloadProfile());
+        verify(sensors, never()).save(any());
+    }
+
+    @Test
+    void anUnknownProfileIsAValidationErrorAndNeverTouchesTheBrokersNorTheDatabase() {
+        var sensor = givenSensorWithProfile(null);
+
+        var error = errorOf(service.handle(new IssueSensorPairingCommand(SENSOR_UUID, "nope")));
+
+        assertEquals("VALIDATION_ERROR", error.code());
+        assertTrue(error.details().contains("nope"), error.details());
+        verifyNoInteractions(provisioner);
+        verify(sensors, never()).save(any());
+        verify(pairings, never()).save(any());
+        assertEquals(null, sensor.getPayloadProfile());
+    }
+
+    @Test
+    void unknownSensorIsReportedBeforeAnUnknownProfile() {
+        var result = service.handle(new IssueSensorPairingCommand(SENSOR_UUID, "nope"));
+
+        assertEquals("MOTIONSENSOR_NOT_FOUND", errorOf(result).code());
+    }
+
+    @Test
+    void failingToSaveTheProfileRollsBackTheBrokerCredentialAndPersistsNoPairing() {
+        givenSensorWithProfile(null);
+        when(sensors.save(any(MotionSensor.class))).thenThrow(new IllegalStateException("db down"));
+
+        var result = service.handle(new IssueSensorPairingCommand(SENSOR_UUID, "compact-emulator"));
+
+        assertEquals("UNEXPECTED_ERROR", errorOf(result).code());
+        verify(provisioner).revoke(SENSOR_UUID);
+        verify(pairings, never()).save(any());
     }
 
     @Test
