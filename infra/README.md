@@ -72,16 +72,17 @@ Brokers accept only TLS on **8883**. Port 1883 is closed. Every client logs in:
 
 - TLS uses a private CA made by Terraform (`mqtt_security.tf`). The broker certificate covers the balancer IP and the brokers' internal IPs.
 - Passwords and the TLS key live in Secret Manager (`spottrack-<env>-mqtt-broker-users`, `spottrack-<env>-mqtt-tls-key`). Only the broker VMs' service account reads them.
-- **Add a sensor:** put its `device_id` in `mqtt_device_ids` (`envs/<env>.tfvars`), run `./tf.sh <env> apply`, then reset the brokers (below).
+- **Add a sensor (recommended, `dynsec`):** register it and issue its pairing QR (`POST /api/v1/monitoring/motion-sensors/<id>/pairing`, ADMIN). The QR carries `deviceId`, `secret`, broker endpoint, CA pin and payload profile; no apply, no broker reset. See [Emulator via pairing](#emulator-via-pairing-recommended).
+- **Add a sensor (legacy, `static` only):** put its `device_id` in `mqtt_device_ids` (`envs/<env>.tfvars`), run `./tf.sh <env> apply`, then reset the brokers (below).
 - **Broker config, ACL or credentials changed:** the startup script only runs on boot, so reset the brokers after the apply:
   ```bash
   gcloud compute instances reset spottrack-dev-broker-1 spottrack-dev-broker-2 spottrack-dev-broker-3 --zone us-central1-a
   ```
-- **Emulator settings:**
+- **Emulator settings:** the recommended flow is the pairing QR, see [Emulator via pairing](#emulator-via-pairing-recommended). Legacy flow (`static` brokers, sensors of `mqtt_device_ids`):
   ```bash
   ./tf.sh dev output mqtt_lb_endpoint                    # ssl://<ip>:8883
   ./tf.sh dev output -raw mqtt_ca_cert > mqtt-ca.crt
-  ./tf.sh dev output -json mqtt_device_credentials       # device_id -> password
+  ./tf.sh dev output -json mqtt_device_credentials       # LEGACY: device_id -> password (static mode only)
   ```
 - **Broker image:** pinned to `eclipse-mosquitto:2.1.2-alpine` (`mosquitto_image`, default in `variables.tf`). The tag `2.1.2` without `-alpine` does not exist. Digest verified on 2026-11-15 (arm64, = what `:2` resolved to then): `sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98`. To reproduce exactly, set `mosquitto_image = "eclipse-mosquitto@sha256:75d6662dee52c947dc9dd9c29f1d8d7ffef78ddaf38001caa09755681e8bbc98"`.
 - **Auth modes** (`mqtt_auth_mode`, default `static`): `static` is the table above (password file + ACL file). `dynsec` uses Mosquitto's dynamic-security plugin so the backend creates and revokes each paired sensor's account at runtime; see [Activating pairing](#activating-pairing-dynsec).
@@ -93,6 +94,17 @@ Brokers accept only TLS on **8883**. Port 1883 is closed. Every client logs in:
     -t sensors/other-device/signal -m hi                                                            # PUBACK 135
   ```
   Broker side: `sudo docker logs mosquitto` on a broker VM shows the refused connections and `Denied PUBLISH`.
+
+## Emulator via pairing (recommended)
+
+With `mqtt_auth_mode = "dynsec"` and `pairing_provisioner_mode = "dynsec"` (already the case in `envs/dev.tfvars`) a sensor gets its credential from the pairing QR, not from Terraform outputs. The emulator lives in the `spottrack-iot-simulator` repo and takes the QR content as `--pairing-json` / `PAIRING_JSON`.
+
+1. Register the sensor (`POST /api/v1/monitoring/motion-sensors`) or reuse one.
+2. Issue the pairing as ADMIN, optionally assigning the payload profile: `POST /api/v1/monitoring/motion-sensors/<id>/pairing` with `{"payloadProfile":"compact-emulator"}` (or no body to keep the sensor's profile). Keep `payloadJson` from the response: it is the exact QR text and the secret is returned only once.
+3. Give the emulator the CA (`./tf.sh <env> output -raw mqtt_ca_cert > mqtt-ca.crt`); it checks it against `caSha256` from the QR.
+4. Run the emulator with `PAIRING_JSON='<payloadJson>'`. It connects as `deviceId`/`secret` to `host:port`, publishes the heartbeat and signals in the QR's `profile`; the first heartbeat moves the pairing to `USED`.
+
+`mqtt_device_credentials` and `mqtt_device_ids` are **legacy** (static mode only); they stay because rolling back to `static` depends on them.
 
 ## Activating pairing (dynsec)
 
