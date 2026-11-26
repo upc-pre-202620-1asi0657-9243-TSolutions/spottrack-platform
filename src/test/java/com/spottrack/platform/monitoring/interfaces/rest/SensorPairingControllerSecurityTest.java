@@ -109,7 +109,7 @@ class SensorPairingControllerSecurityTest {
         when(userDetailsService.loadUserByUsername("client"))
                 .thenReturn(User.withUsername("client").password("x").roles("CLIENT").build());
 
-        var payload = new SensorPairingQrPayload(1, SENSOR_UUID, SECRET, "34.123.45.67", 8883, CA, 1790000000L);
+        var payload = new SensorPairingQrPayload(2, SENSOR_UUID, SECRET, "34.123.45.67", 8883, CA, 1790000000L, "default");
         when(sensorPairingCommandService.handle(new IssueSensorPairingCommand(SENSOR_UUID)))
                 .thenReturn(Result.success(new IssuedSensorPairing(payload, LocalDateTime.of(2026, 11, 15, 12, 15))));
         when(qrCodeRenderer.renderPng(anyString(), anyInt())).thenReturn(PNG);
@@ -152,20 +152,22 @@ class SensorPairingControllerSecurityTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.motionSensorId").value(SENSOR_UUID))
                 .andExpect(jsonPath("$.expiresAt").value("2026-11-15T12:15:00"))
-                .andExpect(jsonPath("$.payload.v").value(1))
+                .andExpect(jsonPath("$.payload.v").value(2))
                 .andExpect(jsonPath("$.payload.deviceId").value(SENSOR_UUID))
                 .andExpect(jsonPath("$.payload.secret").value(SECRET))
                 .andExpect(jsonPath("$.payload.host").value("34.123.45.67"))
                 .andExpect(jsonPath("$.payload.port").value(8883))
                 .andExpect(jsonPath("$.payload.caSha256").value(CA))
                 .andExpect(jsonPath("$.payload.exp").value(1790000000))
+                .andExpect(jsonPath("$.payload.profile").value("default"))
                 .andExpect(jsonPath("$.qrPngBase64").value(Base64.getEncoder().encodeToString(PNG)));
     }
 
     @Test
-    void payloadJsonIsTheCompactV1FormatInTheDocumentedFieldOrder() throws Exception {
-        var expected = "{\"v\":1,\"deviceId\":\"" + SENSOR_UUID + "\",\"secret\":\"" + SECRET
-                + "\",\"host\":\"34.123.45.67\",\"port\":8883,\"caSha256\":\"" + CA + "\",\"exp\":1790000000}";
+    void payloadJsonIsTheCompactV2FormatInTheDocumentedFieldOrder() throws Exception {
+        var expected = "{\"v\":2,\"deviceId\":\"" + SENSOR_UUID + "\",\"secret\":\"" + SECRET
+                + "\",\"host\":\"34.123.45.67\",\"port\":8883,\"caSha256\":\"" + CA
+                + "\",\"exp\":1790000000,\"profile\":\"default\"}";
 
         mockMvc.perform(post(PAIRING_URL).header("Authorization", "Bearer admin-token"))
                 .andExpect(status().isOk())
@@ -205,6 +207,46 @@ class SensorPairingControllerSecurityTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.code").value("BUSINESS_RULE_VIOLATION"))
                 .andExpect(jsonPath("$.details").value("mqtt.public-endpoint is not configured (expected host:port)"));
+    }
+
+    @Test
+    void theRequestedProfileReachesTheCommandAndComesBackInTheQr() throws Exception {
+        var payload = new SensorPairingQrPayload(2, SENSOR_UUID, SECRET, "34.123.45.67", 8883, CA, 1790000000L,
+                "compact-emulator");
+        when(sensorPairingCommandService.handle(new IssueSensorPairingCommand(SENSOR_UUID, "compact-emulator")))
+                .thenReturn(Result.success(new IssuedSensorPairing(payload, LocalDateTime.of(2026, 11, 15, 12, 15))));
+
+        mockMvc.perform(post(PAIRING_URL).header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"payloadProfile\":\"compact-emulator\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.payload.profile").value("compact-emulator"));
+
+        verify(sensorPairingCommandService).handle(new IssueSensorPairingCommand(SENSOR_UUID, "compact-emulator"));
+    }
+
+    @Test
+    void anEmptyBodyKeepsTheSensorsProfile() throws Exception {
+        mockMvc.perform(post(PAIRING_URL).header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+
+        verify(sensorPairingCommandService).handle(new IssueSensorPairingCommand(SENSOR_UUID, null));
+    }
+
+    @Test
+    void unknownProfileIs400LikeTheSensorRegistration() throws Exception {
+        when(sensorPairingCommandService.handle(new IssueSensorPairingCommand(SENSOR_UUID, "nope")))
+                .thenReturn(Result.failure(ApplicationError.validationError(
+                        "payloadProfile", "Unknown sensor payload profile 'nope'")));
+
+        mockMvc.perform(post(PAIRING_URL).header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"payloadProfile\":\"nope\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")));
     }
 
     @Test

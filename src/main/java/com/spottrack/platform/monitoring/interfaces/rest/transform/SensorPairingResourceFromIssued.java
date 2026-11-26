@@ -18,7 +18,7 @@ public final class SensorPairingResourceFromIssued {
                                                             QrCodeRenderer qrCodeRenderer) {
         var qr = issued.qrPayload();
         var payload = new SensorPairingQrPayloadResource(qr.v(), qr.deviceId(), qr.secret(), qr.host(), qr.port(),
-                qr.caSha256(), qr.exp());
+                qr.caSha256(), qr.exp(), qr.profile());
         var payloadJson = jsonMapper.writeValueAsString(payload);
         var png = qrCodeRenderer.renderPng(payloadJson, QR_SIZE_PX);
         return new SensorPairingResource(qr.deviceId(), issued.expiresAt(), payload, payloadJson,
