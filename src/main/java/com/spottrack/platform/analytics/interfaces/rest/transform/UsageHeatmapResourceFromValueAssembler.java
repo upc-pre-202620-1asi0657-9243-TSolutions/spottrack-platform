@@ -3,6 +3,7 @@ package com.spottrack.platform.analytics.interfaces.rest.transform;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
 import com.spottrack.platform.analytics.interfaces.rest.resources.UsageHeatmapResource;
 import com.spottrack.platform.analytics.interfaces.rest.resources.UsageHeatmapResource.DailyUsageResource;
+import com.spottrack.platform.analytics.interfaces.rest.resources.UsageHeatmapResource.DayHourOccupancyResource;
 import com.spottrack.platform.analytics.interfaces.rest.resources.UsageHeatmapResource.EquipmentUsageResource;
 import com.spottrack.platform.analytics.interfaces.rest.resources.UsageHeatmapResource.HourlyOccupancyResource;
 
@@ -26,6 +27,9 @@ public final class UsageHeatmapResourceFromValueAssembler {
                         .map(d -> new DailyUsageResource(d.dayOfWeek().name(), d.activeMinutes(),
                                 d.previousActiveMinutes()))
                         .toList(),
-                heatmap.inactiveEquipmentCount(), heatmap.previousInactiveEquipmentCount());
+                heatmap.inactiveEquipmentCount(), heatmap.previousInactiveEquipmentCount(),
+                heatmap.hourlyByDay().stream()
+                        .map(o -> new DayHourOccupancyResource(o.dayOfWeek().name(), o.hour(), o.occupancyRate()))
+                        .toList());
     }
 }

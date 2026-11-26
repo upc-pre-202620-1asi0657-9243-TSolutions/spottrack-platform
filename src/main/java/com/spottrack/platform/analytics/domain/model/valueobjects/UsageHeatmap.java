@@ -12,10 +12,12 @@ import java.util.List;
  * @param daily                 minutes of use per day of the week, Monday first, with the previous window's figure
  * @param inactiveEquipmentCount         equipment with no use at all in the window
  * @param previousInactiveEquipmentCount the same figure for the window of equal length right before
+ * @param hourlyByDay           occupancy per weekday and opening hour; slots the window never reached are left out
  */
 public record UsageHeatmap(LocalDate from, LocalDate to, int openingHour, int closingHour, int equipmentCount,
                            double occupancyRate, double previousOccupancyRate,
                            Integer peakHour, double peakOccupancyRate,
                            List<HourlyOccupancy> hourly, List<EquipmentUsage> equipment,
-                           List<DailyUsage> daily, int inactiveEquipmentCount, int previousInactiveEquipmentCount) {
+                           List<DailyUsage> daily, int inactiveEquipmentCount, int previousInactiveEquipmentCount,
+                           List<DayHourOccupancy> hourlyByDay) {
 }

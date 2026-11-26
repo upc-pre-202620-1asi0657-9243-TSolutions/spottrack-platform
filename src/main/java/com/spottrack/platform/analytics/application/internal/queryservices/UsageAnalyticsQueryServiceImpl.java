@@ -4,6 +4,7 @@ import com.spottrack.platform.analytics.application.queryservices.UsageAnalytics
 import com.spottrack.platform.analytics.domain.model.aggregates.UsageSession;
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageHeatmapQuery;
 import com.spottrack.platform.analytics.domain.model.valueobjects.DailyUsage;
+import com.spottrack.platform.analytics.domain.model.valueobjects.DayHourOccupancy;
 import com.spottrack.platform.analytics.domain.model.valueobjects.EquipmentUsage;
 import com.spottrack.platform.analytics.domain.model.valueobjects.HourlyOccupancy;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
@@ -30,6 +31,7 @@ import java.util.Map;
  *   <li>Capacity = equipment count × opening minutes that have already elapsed in the window.</li>
  *   <li>Occupancy % = minutes of use inside opening hours ÷ capacity.</li>
  *   <li>Hourly occupancy = the same ratio restricted to one hour of the day across every day.</li>
+ *   <li>Hourly occupancy by day = the same ratio restricted to one hour of one day of the week.</li>
  *   <li>Heat = an equipment's minutes of use ÷ the busiest equipment's, so the map always
  *       spreads from cold to hot within the selected scope.</li>
  *   <li>Daily usage = minutes of use per day of the week, for the window and the one before it.</li>
@@ -93,7 +95,8 @@ public class UsageAnalyticsQueryServiceImpl implements UsageAnalyticsQueryServic
                 peak.map(HourlyOccupancy::hour).orElse(null), peak.map(HourlyOccupancy::occupancyRate).orElse(0.0),
                 hourly, usage,
                 dailyUsage(sessions, from, min(to, now), previousFrom, min(from, now)),
-                inactive, previousInactive);
+                inactive, previousInactive,
+                hourlyOccupancyByDay(current, equipment.size(), from, min(to, now)));
     }
 
     private static List<DailyUsage> dailyUsage(List<UsageSession> sessions, LocalDateTime from, LocalDateTime to,
@@ -169,6 +172,35 @@ public class UsageAnalyticsQueryServiceImpl implements UsageAnalyticsQueryServic
         var result = new ArrayList<HourlyOccupancy>();
         for (int hour = openingHour; hour < closingHour; hour++) {
             result.add(new HourlyOccupancy(hour, rate(used[hour], capacity[hour] * equipmentCount)));
+        }
+        return result;
+    }
+
+    /** Occupancy per (weekday, opening hour); slots with no elapsed capacity in the window are skipped. */
+    private List<DayHourOccupancy> hourlyOccupancyByDay(List<UsageSession> sessions, int equipmentCount,
+                                                        LocalDateTime from, LocalDateTime to) {
+        var used = new double[7][24];
+        for (var session : sessions) {
+            var start = max(session.getStartedAt(), from);
+            var end = min(session.getEndedAt(), to);
+            for (var slot = start.truncatedTo(ChronoUnit.HOURS); slot.isBefore(end); slot = slot.plusHours(1)) {
+                used[slot.getDayOfWeek().ordinal()][slot.getHour()] += overlapMinutes(slot, slot.plusHours(1), start, end);
+            }
+        }
+        var capacity = new double[7][24];
+        for (var day = from.toLocalDate(); day.atStartOfDay().isBefore(to); day = day.plusDays(1)) {
+            for (int hour = openingHour; hour < closingHour; hour++) {
+                var slotStart = day.atTime(hour, 0);
+                capacity[day.getDayOfWeek().ordinal()][hour] += overlapMinutes(slotStart, slotStart.plusHours(1), from, to);
+            }
+        }
+        var result = new ArrayList<DayHourOccupancy>();
+        for (var day : DayOfWeek.values()) {
+            for (int hour = openingHour; hour < closingHour; hour++) {
+                var slotCapacity = capacity[day.ordinal()][hour];
+                if (slotCapacity <= 0) continue;
+                result.add(new DayHourOccupancy(day, hour, rate(used[day.ordinal()][hour], slotCapacity * equipmentCount)));
+            }
         }
         return result;
     }

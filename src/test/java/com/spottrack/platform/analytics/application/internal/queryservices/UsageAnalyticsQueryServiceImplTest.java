@@ -3,6 +3,7 @@ package com.spottrack.platform.analytics.application.internal.queryservices;
 import com.spottrack.platform.analytics.domain.model.aggregates.UsageSession;
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageHeatmapQuery;
 import com.spottrack.platform.analytics.domain.model.valueobjects.DailyUsage;
+import com.spottrack.platform.analytics.domain.model.valueobjects.DayHourOccupancy;
 import com.spottrack.platform.analytics.domain.model.valueobjects.EquipmentUsage;
 import com.spottrack.platform.analytics.domain.model.valueobjects.HourlyOccupancy;
 import com.spottrack.platform.analytics.domain.repositories.UsageSessionRepository;
@@ -23,6 +24,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -101,6 +103,35 @@ class UsageAnalyticsQueryServiceImplTest {
     }
 
     @Test
+    void splitsOccupancyByDayOfWeekAndHour() {
+        var monday = DAY; // 2026-01-05 is a Monday
+        session("A", monday.atTime(18, 0), monday.atTime(19, 0));
+        session("B", monday.atTime(18, 0), monday.atTime(18, 30));
+        session("A", monday.plusDays(2).atTime(7, 0), monday.plusDays(2).atTime(7, 15));
+        session("B", monday.plusDays(2).atTime(23, 0), monday.plusDays(2).atTime(23, 30)); // after closing
+
+        var heatmap = service.handle(new GetUsageHeatmapQuery("gym", null, monday, monday.plusDays(6)));
+
+        assertEquals(7 * 16, heatmap.hourlyByDay().size(), "every weekday x opening hour of a past week");
+        // 90 minutes of 2 machines x 60 minutes
+        assertEquals(new DayHourOccupancy(DayOfWeek.MONDAY, 18, 75.0), slot(heatmap.hourlyByDay(), DayOfWeek.MONDAY, 18));
+        assertEquals(new DayHourOccupancy(DayOfWeek.WEDNESDAY, 7, 12.5), slot(heatmap.hourlyByDay(), DayOfWeek.WEDNESDAY, 7));
+        assertEquals(0.0, slot(heatmap.hourlyByDay(), DayOfWeek.TUESDAY, 18).occupancyRate());
+        assertTrue(heatmap.hourlyByDay().stream().noneMatch(o -> o.hour() >= 22), "closed hours are left out");
+    }
+
+    @Test
+    void hourlyByDayLeavesOutWeekdaysTheWindowNeverReached() {
+        session("A", DAY.atTime(8, 0), DAY.atTime(9, 0));
+
+        var heatmap = service.handle(new GetUsageHeatmapQuery("gym", null, DAY, DAY));
+
+        assertEquals(16, heatmap.hourlyByDay().size());
+        assertTrue(heatmap.hourlyByDay().stream().allMatch(o -> o.dayOfWeek() == DayOfWeek.MONDAY));
+        assertEquals(50.0, slot(heatmap.hourlyByDay(), DayOfWeek.MONDAY, 8).occupancyRate());
+    }
+
+    @Test
     void equipmentWithoutHistoryCountsAsInactiveInBothWindows() {
         var heatmap = service.handle(new GetUsageHeatmapQuery("gym", null, DAY, DAY));
 
@@ -122,6 +153,10 @@ class UsageAnalyticsQueryServiceImplTest {
         equipment.setStatus(status);
         equipment.setZoneId(new ZoneId("zone"));
         return equipment;
+    }
+
+    private static DayHourOccupancy slot(List<DayHourOccupancy> slots, DayOfWeek day, int hour) {
+        return slots.stream().filter(o -> o.dayOfWeek() == day && o.hour() == hour).findFirst().orElseThrow();
     }
 
     private static EquipmentUsage usageOf(List<EquipmentUsage> usage, String equipmentId) {
