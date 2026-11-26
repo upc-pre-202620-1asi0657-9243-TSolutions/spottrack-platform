@@ -67,7 +67,7 @@ class OpenPdfUsageReportRendererTest {
 
     @Test
     void rendersAnEmptyHeatmapWithoutFailing() throws IOException {
-        var empty = new UsageHeatmap(FROM, TO, 6, 22, 0, 0, 0, null, 0, List.of(), List.of(), List.of(), 0, 0);
+        var empty = new UsageHeatmap(FROM, TO, 6, 22, 0, 0, 0, null, 0, List.of(), List.of(), List.of(), 0, 0, List.of());
         var pdf = renderer.render(new UsageReport("Gym Central", null, LocalDateTime.of(2026, 10, 28, 9, 30), empty, Map.of()));
 
         var text = textOf(pdf);
@@ -85,7 +85,7 @@ class OpenPdfUsageReportRendererTest {
             hourly.add(new HourlyOccupancy(hour, 0));
         }
         var idle = List.of(new EquipmentUsage("eq-1-abcdefgh", "zone", 0, 0, 0, 0));
-        var heatmap = new UsageHeatmap(FROM, TO, 6, 22, 1, 0, 0, null, 0, hourly, idle, List.of(), 0, 0);
+        var heatmap = new UsageHeatmap(FROM, TO, 6, 22, 1, 0, 0, null, 0, hourly, idle, List.of(), 0, 0, List.of());
 
         var text = textOf(renderer.render(new UsageReport("Gym", null, LocalDateTime.now(), heatmap, Map.of("eq-1-abcdefgh", "Remo"))));
 
@@ -150,7 +150,7 @@ class OpenPdfUsageReportRendererTest {
         for (int i = 0; i < equipmentCount; i++) {
             equipment.add(new EquipmentUsage("eq-" + i + "-abcdefgh", "zone-1", 3000.0 - i * 10, 40, Math.max(0, 80 - i * 0.5), 0.5));
         }
-        return new UsageHeatmap(FROM, TO, 6, 22, equipmentCount, 52.4, 47.1, 18, 94.3, hourly, equipment, List.of(), 0, 0);
+        return new UsageHeatmap(FROM, TO, 6, 22, equipmentCount, 52.4, 47.1, 18, 94.3, hourly, equipment, List.of(), 0, 0, List.of());
     }
 
     private static int pageCount(byte[] pdf) throws IOException {
