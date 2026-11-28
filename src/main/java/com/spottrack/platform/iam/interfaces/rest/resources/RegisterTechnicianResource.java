@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
 public record RegisterTechnicianResource(
         @Schema(description = "Email of the technician, used as the login username", example = "tecnico@gym.com")
         @NotBlank(message = "must not be blank")
-        @Pattern(regexp = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$", message = "must be a valid email address")
+        @Pattern(regexp = "^[A-Za-z0-9+_.-]++@(?!\\.[A-Za-z]{2,}$)(?:[A-Za-z0-9-]*+\\.)++[A-Za-z]{2,}$", message = "must be a valid email address")
         String email,
 
         @Schema(description = "Initial password set by the administrator (8 to 72 characters)")
