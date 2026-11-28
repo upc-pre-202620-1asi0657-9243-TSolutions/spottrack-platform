@@ -11,7 +11,7 @@ import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.domain.model.entities.Branch;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.junit.jupiter.api.BeforeEach;

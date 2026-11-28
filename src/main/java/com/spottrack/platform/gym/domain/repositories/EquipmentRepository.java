@@ -2,7 +2,7 @@ package com.spottrack.platform.gym.domain.repositories;
 
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 
 import java.time.LocalDate;
 import java.util.List;

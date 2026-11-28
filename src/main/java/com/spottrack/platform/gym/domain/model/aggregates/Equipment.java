@@ -6,7 +6,7 @@ import com.spottrack.platform.gym.domain.model.events.MaintenanceThresholdDefine
 import com.spottrack.platform.gym.domain.model.events.MaintenanceThresholdReachedEvent;
 import com.spottrack.platform.gym.domain.model.entities.Manufacturer;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.ManufacturerId;
 import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
 import com.spottrack.platform.shared.domain.model.aggregates.AbstractDomainAggregateRoot;

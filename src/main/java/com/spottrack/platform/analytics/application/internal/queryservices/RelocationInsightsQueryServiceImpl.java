@@ -12,7 +12,7 @@ import com.spottrack.platform.analytics.domain.model.valueobjects.RelocationSugg
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.domain.model.entities.Branch;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

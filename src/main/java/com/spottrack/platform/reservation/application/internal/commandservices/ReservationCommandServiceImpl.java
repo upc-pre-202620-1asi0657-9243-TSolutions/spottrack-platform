@@ -1,6 +1,6 @@
 package com.spottrack.platform.reservation.application.internal.commandservices;
 
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.reservation.application.commandServices.ReservationCommandService;
 import com.spottrack.platform.reservation.domain.model.aggregates.Reservation;

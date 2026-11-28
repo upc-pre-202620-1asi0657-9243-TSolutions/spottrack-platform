@@ -8,7 +8,7 @@ import com.spottrack.platform.gym.domain.model.queries.GetEquipments;
 import com.spottrack.platform.gym.domain.model.queries.GetEquipmentById;
 import com.spottrack.platform.gym.domain.model.queries.GetEquipmentByName;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.assemblers.EquipmentPersistenceAssembler;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.entities.EquipmentPersistenceEntity;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;

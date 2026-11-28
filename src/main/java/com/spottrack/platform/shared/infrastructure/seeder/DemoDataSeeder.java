@@ -8,7 +8,7 @@ import com.spottrack.platform.gym.domain.model.commands.AddZoneCommand;
 import com.spottrack.platform.gym.domain.model.commands.CreateGym;
 import com.spottrack.platform.gym.domain.model.commands.RegisterEquipment;
 import com.spottrack.platform.gym.domain.model.valueobjects.BranchId;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.ManufacturerId;
 import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;

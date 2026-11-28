@@ -10,7 +10,7 @@ import com.spottrack.platform.gym.domain.model.queries.GetBranchesByGymIdQuery;
 import com.spottrack.platform.gym.domain.model.queries.GetGymById;
 import com.spottrack.platform.gym.domain.model.queries.GetZonesByGymIdQuery;
 import com.spottrack.platform.gym.domain.model.valueobjects.BranchId;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.GymId;
 import com.spottrack.platform.gym.domain.model.valueobjects.ManufacturerId;
 import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;

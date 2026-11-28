@@ -1,7 +1,7 @@
 package com.spottrack.platform.gym.infrastructure.messaging.stomp;
 
 import com.spottrack.platform.gym.domain.model.events.EquipmentStatusUpdatedEvent;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

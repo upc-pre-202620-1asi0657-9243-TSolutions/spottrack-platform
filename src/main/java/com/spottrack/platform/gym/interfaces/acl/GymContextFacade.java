@@ -2,7 +2,7 @@ package com.spottrack.platform.gym.interfaces.acl;
 
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.domain.model.entities.Branch;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 
 import java.util.List;
 import java.util.Optional;

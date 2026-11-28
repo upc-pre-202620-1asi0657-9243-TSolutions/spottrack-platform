@@ -1,6 +1,6 @@
 package com.spottrack.platform.monitoring.application.internal.eventhandlers;
 
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.monitoring.domain.model.events.UsageSessionEndedEvent;
 import org.springframework.context.event.EventListener;
