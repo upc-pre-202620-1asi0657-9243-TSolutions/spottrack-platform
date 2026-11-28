@@ -238,7 +238,7 @@ public class UsageAnalyticsController {
         var slug = Normalizer.normalize(scopeName == null ? "" : scopeName, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .replaceAll("[^A-Za-z0-9]+", "-")
-                .replaceAll("^-+|-+$", "")
+                .replaceAll("(?:^-+)|(?:-+$)", "")
                 .toLowerCase(Locale.ROOT);
         if (slug.length() > 40) {
             slug = slug.substring(0, 40).replaceAll("-+$", "");
