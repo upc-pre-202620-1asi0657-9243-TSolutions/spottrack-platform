@@ -23,8 +23,8 @@ public class WalkUpSessionEndedEquipmentReleaseEventHandler {
     @EventListener
     public void on(UsageSessionEndedEvent event) {
         if (event.reservationId() != null) return;
-        gymContextFacade.findEquipmentById(event.equipmentId())
-                .filter(equipment -> equipment.getStatus() == EquipmentStatus.OCCUPIED)
+        gymContextFacade.findEquipmentSnapshotById(event.equipmentId())
+                .filter(equipment -> equipment.status() == EquipmentStatus.OCCUPIED)
                 .ifPresent(equipment -> gymContextFacade.updateEquipmentStatus(event.equipmentId(), EquipmentStatus.AVAILABLE));
     }
 }

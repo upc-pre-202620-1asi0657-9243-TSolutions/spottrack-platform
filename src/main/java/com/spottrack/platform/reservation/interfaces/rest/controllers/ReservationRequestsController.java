@@ -65,7 +65,7 @@ public class ReservationRequestsController {
         }
         var membershipError = gymMembershipAccessGuard.check(clientId);
         if (membershipError.isPresent()) return membershipError.get();
-        if (gymContextFacade.findEquipmentById(resource.equipmentId()).isEmpty()) {
+        if (gymContextFacade.findEquipmentSnapshotById(resource.equipmentId()).isEmpty()) {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Equipment", resource.equipmentId()));
         }
@@ -125,16 +125,16 @@ public class ReservationRequestsController {
         if (ownershipError.isPresent()) return ownershipError.get();
 
         var requestedEquipmentId = request.get().getEquipmentId().uuid();
-        var requestedEquipment = gymContextFacade.findEquipmentById(requestedEquipmentId);
+        var requestedEquipment = gymContextFacade.findEquipmentSnapshotById(requestedEquipmentId);
         if (requestedEquipment.isEmpty()) {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Equipment", requestedEquipmentId));
         }
         var alternatives = gymContextFacade
-                .findAvailableAlternatives(requestedEquipment.get().getEquipmentName(), requestedEquipmentId)
+                .findAvailableAlternativeSnapshots(requestedEquipment.get().equipmentName(), requestedEquipmentId)
                 .stream()
                 .map(equipment -> new AlternativeEquipmentResource(
-                        equipment.getId().uuid(), equipment.getEquipmentName(), equipment.getModel()))
+                        equipment.equipmentId(), equipment.equipmentName(), equipment.model()))
                 .toList();
         return ResponseEntity.ok(alternatives);
     }

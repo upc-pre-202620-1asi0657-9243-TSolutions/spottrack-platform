@@ -1,6 +1,6 @@
 package com.spottrack.platform.reservation.application.internal.commandservices;
 
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.profiles.interfaces.acl.ProfilesContextFacade;
@@ -50,20 +50,22 @@ class ReservationCommandServiceImplExpressTest {
     private ReservationRepository reservationRepository;
     private GymContextFacade gymContextFacade;
     private ProfilesContextFacade profilesContextFacade;
-    private Equipment equipment;
     private ReservationCommandServiceImpl service;
+
+    private void givenEquipmentIn(EquipmentStatus status) {
+        when(gymContextFacade.findEquipmentSnapshotById(EQUIPMENT_ID)).thenReturn(Optional.of(
+                new EquipmentSnapshot(EQUIPMENT_ID, "Treadmill", "T-100", status, "zone-1")));
+    }
 
     @BeforeEach
     void setUp() {
         reservationRepository = mock(ReservationRepository.class);
         gymContextFacade = mock(GymContextFacade.class);
         profilesContextFacade = mock(ProfilesContextFacade.class);
-        equipment = mock(Equipment.class);
         var clock = Clock.fixed(NOW.toInstant(ZoneOffset.UTC), ZoneId.of("UTC"));
         service = new ReservationCommandServiceImpl(reservationRepository, gymContextFacade, profilesContextFacade, clock, 10);
 
-        when(equipment.getStatus()).thenReturn(EquipmentStatus.AVAILABLE);
-        when(gymContextFacade.findEquipmentById(EQUIPMENT_ID)).thenReturn(Optional.of(equipment));
+        givenEquipmentIn(EquipmentStatus.AVAILABLE);
         when(gymContextFacade.resolveGymIdForEquipment(EQUIPMENT_ID)).thenReturn(Optional.of(GYM_ID));
         when(profilesContextFacade.fetchActiveGymIdByClientId(CLIENT_ID)).thenReturn(GYM_ID);
         when(reservationRepository.findByEquipmentIdAndStatus(anyString(), any())).thenReturn(Optional.empty());
@@ -127,7 +129,7 @@ class ReservationCommandServiceImplExpressTest {
 
     @Test
     void unknownEquipmentIsNotFound() {
-        when(gymContextFacade.findEquipmentById(EQUIPMENT_ID)).thenReturn(Optional.empty());
+        when(gymContextFacade.findEquipmentSnapshotById(EQUIPMENT_ID)).thenReturn(Optional.empty());
 
         var error = errorOf(service.handle(command(null, null)));
 
@@ -161,7 +163,7 @@ class ReservationCommandServiceImplExpressTest {
     @ParameterizedTest
     @EnumSource(value = EquipmentStatus.class, names = {"OCCUPIED", "RESERVED"})
     void occupiedOrReservedEquipmentIsAConflict(EquipmentStatus status) {
-        when(equipment.getStatus()).thenReturn(status);
+        givenEquipmentIn(status);
 
         var error = errorOf(service.handle(command(null, null)));
 
@@ -173,7 +175,7 @@ class ReservationCommandServiceImplExpressTest {
     @ParameterizedTest
     @EnumSource(value = EquipmentStatus.class, names = {"MAINTENANCE", "OUT_OF_SERVICE", "DECOMMISSIONED"})
     void unavailableEquipmentIsABusinessRuleViolation(EquipmentStatus status) {
-        when(equipment.getStatus()).thenReturn(status);
+        givenEquipmentIn(status);
 
         var error = errorOf(service.handle(command(null, null)));
 

@@ -145,8 +145,8 @@ public class MaintenanceController {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Admin", authentication.getName()));
         }
-        var resources = gymContextFacade.findEquipmentsByAdminUserId(adminUserId).stream()
-                .flatMap(eq -> technicalTicketJpaRepository.findByEquipmentId(eq.getId().uuid()).stream())
+        var resources = gymContextFacade.findEquipmentSnapshotsByAdminUserId(adminUserId).stream()
+                .flatMap(eq -> technicalTicketJpaRepository.findByEquipmentId(eq.equipmentId()).stream())
                 .map(TechnicalTicketPersistenceAssembler::toDomainFromPersistence)
                 .map(TechnicalTicketResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
@@ -359,8 +359,8 @@ public class MaintenanceController {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Admin", authentication.getName()));
         }
-        var resources = gymContextFacade.findEquipmentsByAdminUserId(adminUserId).stream()
-                .flatMap(eq -> technicalTicketJpaRepository.findByEquipmentId(eq.getId().uuid()).stream())
+        var resources = gymContextFacade.findEquipmentSnapshotsByAdminUserId(adminUserId).stream()
+                .flatMap(eq -> technicalTicketJpaRepository.findByEquipmentId(eq.equipmentId()).stream())
                 .flatMap(ticket -> maintenanceLogQueryService
                         .handle(new GetMaintenanceLogsByTicketIdQuery(ticket.getTicketId())).stream())
                 .map(MaintenanceLogResourceFromEntityAssembler::toResourceFromEntity)

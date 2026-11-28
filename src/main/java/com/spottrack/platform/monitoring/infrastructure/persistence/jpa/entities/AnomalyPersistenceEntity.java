@@ -1,6 +1,5 @@
 package com.spottrack.platform.monitoring.infrastructure.persistence.jpa.entities;
 
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.AnomalyId;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.monitoring.domain.model.valueobjects.ReservationId;

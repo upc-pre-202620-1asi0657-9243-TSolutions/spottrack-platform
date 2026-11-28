@@ -1,6 +1,6 @@
 package com.spottrack.platform.monitoring.application.internal.commandservices;
 
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
@@ -51,9 +51,9 @@ public class SessionTrackerCommandServiceImpl implements SessionTrackerCommandSe
      * map shows it as taken right away. Any other status (reserved, maintenance...)
      * is owned by its own flow and left alone.
      */
-    private void markOccupiedIfAvailable(Equipment equipment) {
-        if (equipment.getStatus() == EquipmentStatus.AVAILABLE) {
-            gymContextFacade.updateEquipmentStatus(equipment.getId().uuid(), EquipmentStatus.OCCUPIED);
+    private void markOccupiedIfAvailable(EquipmentSnapshot equipment) {
+        if (equipment.status() == EquipmentStatus.AVAILABLE) {
+            gymContextFacade.updateEquipmentStatus(equipment.equipmentId(), EquipmentStatus.OCCUPIED);
         }
     }
 
@@ -94,7 +94,7 @@ public class SessionTrackerCommandServiceImpl implements SessionTrackerCommandSe
 
     @Override
     public Result<SessionTracker, ApplicationError> handle(MotionSensorCaptureCommand command) {
-        var equipment = gymContextFacade.findEquipmentById(command.equipmentId().uuid());
+        var equipment = gymContextFacade.findEquipmentSnapshotById(command.equipmentId().uuid());
         if (equipment.isEmpty()) {
             return Result.failure(ApplicationError.notFound("Equipment", command.equipmentId().uuid()));
         }
@@ -113,7 +113,7 @@ public class SessionTrackerCommandServiceImpl implements SessionTrackerCommandSe
 
     @Override
     public Result<SessionTracker, ApplicationError> handle(CameraCaptureMotionCommand command) {
-        var equipment = gymContextFacade.findEquipmentById(command.equipmentId().uuid());
+        var equipment = gymContextFacade.findEquipmentSnapshotById(command.equipmentId().uuid());
         if (equipment.isEmpty()) {
             return Result.failure(ApplicationError.notFound("Equipment", command.equipmentId().uuid()));
         }

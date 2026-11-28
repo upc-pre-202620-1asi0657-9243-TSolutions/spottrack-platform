@@ -67,8 +67,8 @@ public class SessionTrackerController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<SessionTrackerResource> getMySessionTrackers(Authentication authentication) {
         var adminUserId = iamContextFacade.fetchUserIdByUsername(authentication.getName()).orElse(0L);
-        Set<String> myEquipmentIds = gymContextFacade.findEquipmentsByAdminUserId(adminUserId).stream()
-                .map(equipment -> equipment.getId().uuid())
+        Set<String> myEquipmentIds = gymContextFacade.findEquipmentSnapshotsByAdminUserId(adminUserId).stream()
+                .map(equipment -> equipment.equipmentId())
                 .collect(Collectors.toSet());
 
         return sessionTrackerQueryService.handle(new GetAllSessionTrackersQuery()).stream()
@@ -138,8 +138,8 @@ public class SessionTrackerController {
     }
 
     private SessionTrackerResource toEnrichedResource(SessionTracker tracker, java.time.LocalTime calculatedTrueActivity) {
-        var equipmentName = gymContextFacade.findEquipmentById(tracker.getEquipmentId().uuid())
-                .map(equipment -> equipment.getEquipmentName())
+        var equipmentName = gymContextFacade.findEquipmentSnapshotById(tracker.getEquipmentId().uuid())
+                .map(equipment -> equipment.equipmentName())
                 .orElse(null);
 
         Long clientId = null;

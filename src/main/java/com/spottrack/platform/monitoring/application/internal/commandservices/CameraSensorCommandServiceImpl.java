@@ -23,7 +23,7 @@ public class CameraSensorCommandServiceImpl implements CameraSensorCommandServic
     @Override
     public Result<CameraSensor, ApplicationError> handle(RegisterCameraSensorCommand command) {
         try {
-            if (gymContextFacade.findEquipmentById(command.equipmentId()).isEmpty()) {
+            if (gymContextFacade.findEquipmentSnapshotById(command.equipmentId()).isEmpty()) {
                 return Result.failure(ApplicationError.notFound("Equipment", command.equipmentId()));
             }
             if (cameraSensorRepository.existsByEquipmentId(new EquipmentId(command.equipmentId()))) {

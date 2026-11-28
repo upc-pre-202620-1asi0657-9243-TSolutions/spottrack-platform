@@ -37,7 +37,7 @@ public class MotionSensorCommandServiceImpl implements MotionSensorCommandServic
                         "payloadProfile",
                         "Unknown sensor payload profile '%s'".formatted(command.payloadProfile())));
             }
-            if (gymContextFacade.findEquipmentById(command.equipmentId()).isEmpty()) {
+            if (gymContextFacade.findEquipmentSnapshotById(command.equipmentId()).isEmpty()) {
                 return Result.failure(ApplicationError.notFound("Equipment", command.equipmentId()));
             }
             if (motionSensorRepository.existsByEquipmentId(new EquipmentId(command.equipmentId()))) {

@@ -1,6 +1,7 @@
 package com.spottrack.platform.monitoring.application.internal.commandservices;
 
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.monitoring.application.ports.PayloadProfileCatalog;
 import com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor;
@@ -40,7 +41,8 @@ class MotionSensorCommandServiceImplRegisterTest {
         payloadProfileCatalog = mock(PayloadProfileCatalog.class);
         service = new MotionSensorCommandServiceImpl(motionSensorRepository, gymContextFacade, payloadProfileCatalog);
 
-        when(gymContextFacade.findEquipmentById(EQUIPMENT_ID)).thenReturn(Optional.of(mock(Equipment.class)));
+        when(gymContextFacade.findEquipmentSnapshotById(EQUIPMENT_ID)).thenReturn(Optional.of(
+                new EquipmentSnapshot(EQUIPMENT_ID, "Treadmill", "T-100", EquipmentStatus.AVAILABLE, "zone-1")));
         when(motionSensorRepository.existsByEquipmentId(new EquipmentId(EQUIPMENT_ID))).thenReturn(false);
         when(motionSensorRepository.save(any(MotionSensor.class))).thenAnswer(inv -> inv.getArgument(0));
         when(payloadProfileCatalog.isSupported("alt")).thenReturn(true);
@@ -96,7 +98,7 @@ class MotionSensorCommandServiceImplRegisterTest {
 
     @Test
     void unknownEquipmentIsStillNotFound() {
-        when(gymContextFacade.findEquipmentById(EQUIPMENT_ID)).thenReturn(Optional.empty());
+        when(gymContextFacade.findEquipmentSnapshotById(EQUIPMENT_ID)).thenReturn(Optional.empty());
 
         var result = service.handle(new RegisterMotionSensorCommand(EQUIPMENT_ID, null));
 
