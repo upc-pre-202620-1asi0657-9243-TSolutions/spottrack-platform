@@ -16,8 +16,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * ({@code <bc>.interfaces.acl}) or its integration events ({@code <bc>.interfaces.events}),
  * never through its domain model. {@code shared} is the shared kernel and may be used by anyone.
  *
- * <p>Enforced for the contexts already migrated. analytics and notification still read the gym
- * domain through deprecated facade methods; they are tracked as RF-6 and get added here once fixed.
+ * <p>Enforced for the contexts migrated in RF-3 and RF-6. gym, iam, profiles and routine are not
+ * covered yet.
  */
 class BoundedContextBoundariesTest {
 
@@ -37,7 +37,7 @@ class BoundedContextBoundariesTest {
     }
 
     @ParameterizedTest(name = "{0} does not depend on another context's domain")
-    @ValueSource(strings = {"reservation", "maintenance", "monitoring", "membership"})
+    @ValueSource(strings = {"reservation", "maintenance", "monitoring", "membership", "analytics", "notification"})
     void doesNotDependOnTheDomainOfAnotherBoundedContext(String context) {
         var foreignDomains = BOUNDED_CONTEXTS.stream()
                 .filter(other -> !other.equals(context))

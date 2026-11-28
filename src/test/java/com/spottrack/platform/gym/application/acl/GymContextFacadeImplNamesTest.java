@@ -8,7 +8,6 @@ import com.spottrack.platform.gym.domain.model.aggregates.Gym;
 import com.spottrack.platform.gym.domain.model.queries.GetGymById;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.entities.BranchPersistenceEntity;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.BranchPersistenceRepository;
-import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.GymWhitelistPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.ZonePersistenceRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,8 +38,7 @@ class GymContextFacadeImplNamesTest {
                 gymQueryService,
                 mock(GymWhitelistPersistenceRepository.class),
                 mock(ZonePersistenceRepository.class),
-                branchRepository,
-                mock(EquipmentPersistenceRepository.class));
+                branchRepository);
     }
 
     @Test

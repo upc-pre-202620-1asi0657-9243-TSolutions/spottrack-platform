@@ -14,6 +14,8 @@ import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.GymId;
 import com.spottrack.platform.gym.domain.model.valueobjects.ManufacturerId;
 import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
+import com.spottrack.platform.gym.application.queryservices.EquipmentQueryService;
+import com.spottrack.platform.gym.domain.model.queries.GetEquipmentsByGymIdQuery;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.profiles.interfaces.acl.ProfilesContextFacade;
@@ -48,6 +50,7 @@ class GymControllerReadAccessTest {
     private IamContextFacade iamContextFacade;
     private ProfilesContextFacade profilesContextFacade;
     private GymContextFacade gymContextFacade;
+    private EquipmentQueryService equipmentQueryService;
     private GymController controller;
 
     @BeforeEach
@@ -56,8 +59,9 @@ class GymControllerReadAccessTest {
         iamContextFacade = mock(IamContextFacade.class);
         profilesContextFacade = mock(ProfilesContextFacade.class);
         gymContextFacade = mock(GymContextFacade.class);
+        equipmentQueryService = mock(EquipmentQueryService.class);
         controller = new GymController(mock(GymCommandService.class), gymQueryService,
-                iamContextFacade, profilesContextFacade, gymContextFacade);
+                iamContextFacade, profilesContextFacade, gymContextFacade, equipmentQueryService);
     }
 
     @Test
@@ -69,7 +73,7 @@ class GymControllerReadAccessTest {
                 .thenReturn(List.of(new Branch("b-1", GYM_ID, "San Isidro Centro", "Av. Javier Prado 100")));
         when(gymQueryService.handle(any(GetZonesByGymIdQuery.class)))
                 .thenReturn(List.of(new Zone("z-1", "Cardio", 30, new BranchId("b-1"))));
-        when(gymContextFacade.findEquipmentsByGymId(GYM_ID)).thenReturn(List.of(equipment()));
+        when(equipmentQueryService.handle(new GetEquipmentsByGymIdQuery(GYM_ID))).thenReturn(List.of(equipment()));
         var auth = client();
 
         var branches = controller.getBranchesByGymId(auth, GYM_ID);
@@ -97,7 +101,7 @@ class GymControllerReadAccessTest {
             assertEquals("FORBIDDEN", assertInstanceOf(ErrorResource.class, response.getBody()).code());
         }
         verify(gymQueryService, never()).handle(any(GetBranchesByGymIdQuery.class));
-        verify(gymContextFacade, never()).findEquipmentsByGymId(any());
+        verify(equipmentQueryService, never()).handle(any(GetEquipmentsByGymIdQuery.class));
     }
 
     @Test

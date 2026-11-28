@@ -8,11 +8,9 @@ import com.spottrack.platform.analytics.domain.model.valueobjects.DemandClassifi
 import com.spottrack.platform.analytics.domain.model.valueobjects.EquipmentUsage;
 import com.spottrack.platform.analytics.domain.model.valueobjects.RelocationInsights;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
-import com.spottrack.platform.gym.domain.model.entities.Branch;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
-import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
+import com.spottrack.platform.gym.interfaces.acl.BranchSnapshot;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,13 +35,13 @@ class RelocationInsightsQueryServiceImplTest {
 
     private final UsageAnalyticsQueryService usageService = mock(UsageAnalyticsQueryService.class);
     private final GymContextFacade gymContextFacade = mock(GymContextFacade.class);
-    private final List<Branch> branches = new ArrayList<>();
+    private final List<BranchSnapshot> branches = new ArrayList<>();
     private RelocationInsightsQueryServiceImpl service;
 
     @BeforeEach
     void setUp() {
         service = new RelocationInsightsQueryServiceImpl(usageService, gymContextFacade, 20, 50, 10);
-        when(gymContextFacade.findBranchesByGymId(GYM)).thenReturn(branches);
+        when(gymContextFacade.findBranchSnapshotsByGymId(GYM)).thenReturn(branches);
         when(gymContextFacade.findGymName(GYM)).thenReturn(Optional.of("SpotTrack"));
     }
 
@@ -251,15 +249,15 @@ class RelocationInsightsQueryServiceImplTest {
     }
 
     private void branch(String id, String name, double rate, Machine... machines) {
-        branches.add(new Branch(id, GYM, name, "address"));
-        var equipment = new ArrayList<Equipment>();
+        branches.add(new BranchSnapshot(id, GYM, name, "address"));
+        var equipment = new ArrayList<EquipmentSnapshot>();
         var usage = new ArrayList<EquipmentUsage>();
         for (var m : machines) {
             equipment.add(equipment(m));
             usage.add(new EquipmentUsage(m.id(), "zone", m.minutes(), 1, m.utilization(), 0));
         }
         equipment.add(equipment(new Machine("decommissioned-" + id, 0, 0, EquipmentStatus.DECOMMISSIONED)));
-        when(gymContextFacade.findEquipmentsByBranchId(id)).thenReturn(equipment);
+        when(gymContextFacade.findEquipmentSnapshotsByBranchId(id)).thenReturn(equipment);
         when(usageService.handle(new GetUsageHeatmapQuery(GYM, id, FROM, TO))).thenReturn(
                 new UsageHeatmap(FROM, TO, 6, 22, machines.length, rate, 0, null, 0, List.of(), usage, List.of(), 0, 0, List.of()));
     }
@@ -276,13 +274,8 @@ class RelocationInsightsQueryServiceImplTest {
         return new Machine(id, utilization, minutes, status);
     }
 
-    private static Equipment equipment(Machine m) {
-        var equipment = new Equipment();
-        equipment.setId(new EquipmentId(m.id()));
-        equipment.setEquipmentName("Machine " + m.id());
-        equipment.setStatus(m.status());
-        equipment.setZoneId(new ZoneId("zone"));
-        return equipment;
+    private static EquipmentSnapshot equipment(Machine m) {
+        return new EquipmentSnapshot(m.id(), "Machine " + m.id(), null, m.status(), "zone");
     }
 
     private record Machine(String id, double utilization, double minutes, EquipmentStatus status) {

@@ -6,20 +6,18 @@ import com.spottrack.platform.gym.application.queryservices.EquipmentQueryServic
 import com.spottrack.platform.gym.application.queryservices.GymQueryService;
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.domain.model.aggregates.Gym;
-import com.spottrack.platform.gym.domain.model.entities.Branch;
 import com.spottrack.platform.gym.domain.model.commands.CreateGym;
 import com.spottrack.platform.gym.domain.model.commands.UpdateEquipmentStatus;
 import com.spottrack.platform.gym.domain.model.queries.GetAvailableAlternativesQuery;
 import com.spottrack.platform.gym.domain.model.queries.GetEquipmentById;
+import com.spottrack.platform.gym.domain.model.queries.GetEquipmentsByAdminUserIdQuery;
+import com.spottrack.platform.gym.domain.model.queries.GetEquipmentsByBranchIdQuery;
+import com.spottrack.platform.gym.domain.model.queries.GetEquipmentsByGymIdQuery;
 import com.spottrack.platform.gym.domain.model.queries.GetGymById;
 import com.spottrack.platform.gym.domain.model.queries.GetGymsByAdminUserId;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
-import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.GymId;
-import com.spottrack.platform.gym.infrastructure.persistence.jpa.assemblers.BranchPersistenceAssembler;
-import com.spottrack.platform.gym.infrastructure.persistence.jpa.assemblers.EquipmentPersistenceAssembler;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.BranchPersistenceRepository;
-import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.GymWhitelistPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.ZonePersistenceRepository;
 import com.spottrack.platform.gym.interfaces.acl.BranchSnapshot;
@@ -27,6 +25,7 @@ import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -44,7 +43,6 @@ public class GymContextFacadeImpl implements GymContextFacade {
     private final GymWhitelistPersistenceRepository gymWhitelistPersistenceRepository;
     private final ZonePersistenceRepository zonePersistenceRepository;
     private final BranchPersistenceRepository branchPersistenceRepository;
-    private final EquipmentPersistenceRepository equipmentPersistenceRepository;
 
     public GymContextFacadeImpl(EquipmentCommandService equipmentCommandService,
                                 EquipmentQueryService equipmentQueryService,
@@ -52,8 +50,7 @@ public class GymContextFacadeImpl implements GymContextFacade {
                                 GymQueryService gymQueryService,
                                 GymWhitelistPersistenceRepository gymWhitelistPersistenceRepository,
                                 ZonePersistenceRepository zonePersistenceRepository,
-                                BranchPersistenceRepository branchPersistenceRepository,
-                                EquipmentPersistenceRepository equipmentPersistenceRepository) {
+                                BranchPersistenceRepository branchPersistenceRepository) {
         this.equipmentCommandService = equipmentCommandService;
         this.equipmentQueryService = equipmentQueryService;
         this.gymCommandService = gymCommandService;
@@ -61,22 +58,11 @@ public class GymContextFacadeImpl implements GymContextFacade {
         this.gymWhitelistPersistenceRepository = gymWhitelistPersistenceRepository;
         this.zonePersistenceRepository = zonePersistenceRepository;
         this.branchPersistenceRepository = branchPersistenceRepository;
-        this.equipmentPersistenceRepository = equipmentPersistenceRepository;
     }
 
     @Override
     public void updateEquipmentStatus(String equipmentId, EquipmentStatus status) {
         equipmentCommandService.handle(new UpdateEquipmentStatus(equipmentId, status));
-    }
-
-    @Override
-    public Optional<Equipment> findEquipmentById(String equipmentId) {
-        return equipmentQueryService.handle(new GetEquipmentById(new EquipmentId(equipmentId)));
-    }
-
-    @Override
-    public List<Equipment> findAvailableAlternatives(String equipmentName, String excludeEquipmentId) {
-        return equipmentQueryService.handle(new GetAvailableAlternativesQuery(equipmentName, excludeEquipmentId));
     }
 
     @Override
@@ -129,35 +115,8 @@ public class GymContextFacadeImpl implements GymContextFacade {
     }
 
     @Override
-    public List<Equipment> findEquipmentsByAdminUserId(Long adminUserId) {
-        return gymQueryService.handle(new GetGymsByAdminUserId(adminUserId)).stream()
-                .flatMap(gym -> branchPersistenceRepository.findByGymId(gym.getId().uuid()).stream())
-                .flatMap(branch -> zonePersistenceRepository.findByBranchId(branch.getBranchId()).stream())
-                .flatMap(zone -> equipmentPersistenceRepository.findByZoneId(zone.getZoneId()).stream())
-                .map(EquipmentPersistenceAssembler::toDomainFromPersistence)
-                .toList();
-    }
-
-    @Override
-    public List<Equipment> findEquipmentsByGymId(String gymId) {
-        return branchPersistenceRepository.findByGymId(gymId).stream()
-                .flatMap(branch -> zonePersistenceRepository.findByBranchId(branch.getBranchId()).stream())
-                .flatMap(zone -> equipmentPersistenceRepository.findByZoneId(zone.getZoneId()).stream())
-                .map(EquipmentPersistenceAssembler::toDomainFromPersistence)
-                .toList();
-    }
-
-    @Override
     public Optional<String> resolveGymIdForBranch(String branchId) {
         return branchPersistenceRepository.findByBranchId(branchId).map(branch -> branch.getGymId());
-    }
-
-    @Override
-    public List<Equipment> findEquipmentsByBranchId(String branchId) {
-        return zonePersistenceRepository.findByBranchId(branchId).stream()
-                .flatMap(zone -> equipmentPersistenceRepository.findByZoneId(zone.getZoneId()).stream())
-                .map(EquipmentPersistenceAssembler::toDomainFromPersistence)
-                .toList();
     }
 
     @Override
@@ -171,42 +130,37 @@ public class GymContextFacadeImpl implements GymContextFacade {
     }
 
     @Override
-    public List<Branch> findBranchesByGymId(String gymId) {
-        return branchPersistenceRepository.findByGymId(gymId).stream()
-                .map(BranchPersistenceAssembler::toDomainFromPersistence)
-                .toList();
-    }
-
-    @Override
     public Optional<EquipmentSnapshot> findEquipmentSnapshotById(String equipmentId) {
-        return findEquipmentById(equipmentId).map(GymContextFacadeImpl::toSnapshot);
+        return equipmentQueryService.handle(new GetEquipmentById(new EquipmentId(equipmentId)))
+                .map(GymContextFacadeImpl::toSnapshot);
     }
 
     @Override
     public List<EquipmentSnapshot> findAvailableAlternativeSnapshots(String equipmentName, String excludeEquipmentId) {
-        return toSnapshots(findAvailableAlternatives(equipmentName, excludeEquipmentId));
+        return toSnapshots(equipmentQueryService.handle(
+                new GetAvailableAlternativesQuery(equipmentName, excludeEquipmentId)));
     }
 
     @Override
     public List<EquipmentSnapshot> findEquipmentSnapshotsByAdminUserId(Long adminUserId) {
-        return toSnapshots(findEquipmentsByAdminUserId(adminUserId));
+        return toSnapshots(equipmentQueryService.handle(new GetEquipmentsByAdminUserIdQuery(adminUserId)));
     }
 
     @Override
     public List<EquipmentSnapshot> findEquipmentSnapshotsByGymId(String gymId) {
-        return toSnapshots(findEquipmentsByGymId(gymId));
+        return toSnapshots(equipmentQueryService.handle(new GetEquipmentsByGymIdQuery(gymId)));
     }
 
     @Override
     public List<EquipmentSnapshot> findEquipmentSnapshotsByBranchId(String branchId) {
-        return toSnapshots(findEquipmentsByBranchId(branchId));
+        return toSnapshots(equipmentQueryService.handle(new GetEquipmentsByBranchIdQuery(branchId)));
     }
 
     @Override
     public List<BranchSnapshot> findBranchSnapshotsByGymId(String gymId) {
-        return findBranchesByGymId(gymId).stream()
+        return branchPersistenceRepository.findByGymId(gymId).stream()
                 .map(branch -> new BranchSnapshot(
-                        branch.getId().uuid(), branch.getGymId(), branch.getName(), branch.getAddress()))
+                        branch.getBranchId(), branch.getGymId(), branch.getName(), branch.getAddress()))
                 .toList();
     }
 

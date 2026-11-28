@@ -10,6 +10,7 @@ import com.spottrack.platform.analytics.domain.model.commands.RequestTotalUsageT
 import com.spottrack.platform.analytics.domain.model.queries.GetAllActivityReportsQuery;
 import com.spottrack.platform.analytics.interfaces.rest.resources.ActivityReportResource;
 import com.spottrack.platform.analytics.interfaces.rest.transform.ActivityReportResourceFromEntityAssembler;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.shared.application.result.ApplicationError;
@@ -72,8 +73,8 @@ public class ActivityReportsController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<ActivityReportResource> getMyActivityReports(Authentication authentication) {
         var adminUserId = resolveAdminUserId(authentication);
-        Set<String> myEquipmentIds = gymContextFacade.findEquipmentsByAdminUserId(adminUserId).stream()
-                .map(equipment -> equipment.getId().uuid())
+        Set<String> myEquipmentIds = gymContextFacade.findEquipmentSnapshotsByAdminUserId(adminUserId).stream()
+                .map(EquipmentSnapshot::equipmentId)
                 .collect(Collectors.toSet());
 
         return activityReportQueryService.handle(new GetAllActivityReportsQuery()).stream()

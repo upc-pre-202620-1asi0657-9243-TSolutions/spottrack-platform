@@ -6,7 +6,6 @@ import com.spottrack.platform.gym.application.queryservices.EquipmentQueryServic
 import com.spottrack.platform.gym.application.queryservices.GymQueryService;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.entities.BranchPersistenceEntity;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.BranchPersistenceRepository;
-import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.GymWhitelistPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.ZonePersistenceRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,30 +33,29 @@ class GymContextFacadeImplBranchesTest {
                 mock(GymQueryService.class),
                 mock(GymWhitelistPersistenceRepository.class),
                 mock(ZonePersistenceRepository.class),
-                branchRepository,
-                mock(EquipmentPersistenceRepository.class));
+                branchRepository);
     }
 
     @Test
-    void findBranchesByGymIdMapsEveryBranchOfTheGym() {
+    void findBranchSnapshotsByGymIdMapsEveryBranchOfTheGym() {
         when(branchRepository.findByGymId("gym-1")).thenReturn(List.of(
                 branch("b1", "gym-1", "San Isidro", "Av. Rivera 100"),
                 branch("b2", "gym-1", "La Molina", "Av. Javier Prado 200")));
 
-        var branches = facade.findBranchesByGymId("gym-1");
+        var branches = facade.findBranchSnapshotsByGymId("gym-1");
 
         assertEquals(2, branches.size());
-        assertEquals("b1", branches.get(0).getId().uuid());
-        assertEquals("gym-1", branches.get(0).getGymId());
-        assertEquals("San Isidro", branches.get(0).getName());
-        assertEquals("La Molina", branches.get(1).getName());
+        assertEquals("b1", branches.get(0).branchId());
+        assertEquals("gym-1", branches.get(0).gymId());
+        assertEquals("San Isidro", branches.get(0).name());
+        assertEquals("La Molina", branches.get(1).name());
     }
 
     @Test
-    void findBranchesByGymIdIsEmptyWhenTheGymHasNoneOrDoesNotExist() {
+    void findBranchSnapshotsByGymIdIsEmptyWhenTheGymHasNoneOrDoesNotExist() {
         when(branchRepository.findByGymId("ghost")).thenReturn(List.of());
 
-        assertTrue(facade.findBranchesByGymId("ghost").isEmpty());
+        assertTrue(facade.findBranchSnapshotsByGymId("ghost").isEmpty());
     }
 
     private static BranchPersistenceEntity branch(String branchId, String gymId, String name, String address) {

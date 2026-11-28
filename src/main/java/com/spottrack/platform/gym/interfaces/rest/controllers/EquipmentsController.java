@@ -8,6 +8,7 @@ import com.spottrack.platform.gym.domain.model.commands.MarkEquipmentOutOfServic
 import com.spottrack.platform.gym.domain.model.queries.GetEquipmentById;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.gym.domain.model.queries.GetEquipmentsByAdminUserIdQuery;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.gym.interfaces.rest.resources.*;
 import com.spottrack.platform.gym.interfaces.rest.transform.*;
@@ -205,7 +206,7 @@ public class EquipmentsController {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
                     ApplicationError.notFound("Admin", authentication.getName()));
         }
-        var resources = gymContextFacade.findEquipmentsByAdminUserId(adminUserId).stream()
+        var resources = equipmentQueryService.handle(new GetEquipmentsByAdminUserIdQuery(adminUserId)).stream()
                 .map(EquipmentResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         return ResponseEntity.ok(resources);

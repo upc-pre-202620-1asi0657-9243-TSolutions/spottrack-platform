@@ -1,6 +1,6 @@
 package com.spottrack.platform.notification.application.internal.commandservices;
 
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.notification.application.commandservices.NotificationCommandService;
@@ -79,7 +79,7 @@ public class NotificationCommandServiceImpl implements NotificationCommandServic
     @Transactional
     @Override
     public Result<EquipmentWatch, ApplicationError> handle(WatchEquipmentCommand command) {
-        var equipment = gymContextFacade.findEquipmentById(command.equipmentId());
+        var equipment = gymContextFacade.findEquipmentSnapshotById(command.equipmentId());
         if (equipment.isEmpty()) {
             return Result.failure(ApplicationError.notFound("Equipment", command.equipmentId()));
         }
@@ -89,7 +89,7 @@ public class NotificationCommandServiceImpl implements NotificationCommandServic
             return Result.failure(ApplicationError.forbidden("Equipment",
                     "The equipment does not belong to the client's active gym."));
         }
-        var status = equipment.get().getStatus();
+        var status = equipment.get().status();
         if (!WATCHABLE_STATUSES.contains(status)) {
             return Result.failure(ApplicationError.businessRuleViolation("equipment watch",
                     "Only an equipment that is in use, reserved or under maintenance can be watched; it is %s."
@@ -259,8 +259,8 @@ public class NotificationCommandServiceImpl implements NotificationCommandServic
     }
 
     private String equipmentName(String equipmentId) {
-        return gymContextFacade.findEquipmentById(equipmentId)
-                .map(Equipment::getEquipmentName)
+        return gymContextFacade.findEquipmentSnapshotById(equipmentId)
+                .map(EquipmentSnapshot::equipmentName)
                 .filter(name -> !name.isBlank())
                 .orElse("The machine");
     }

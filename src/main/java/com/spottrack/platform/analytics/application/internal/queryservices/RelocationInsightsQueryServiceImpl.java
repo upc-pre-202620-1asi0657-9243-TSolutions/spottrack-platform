@@ -10,8 +10,8 @@ import com.spottrack.platform.analytics.domain.model.valueobjects.EquipmentUsage
 import com.spottrack.platform.analytics.domain.model.valueobjects.RelocationInsights;
 import com.spottrack.platform.analytics.domain.model.valueobjects.RelocationSuggestion;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
-import com.spottrack.platform.gym.domain.model.entities.Branch;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
+import com.spottrack.platform.gym.interfaces.acl.BranchSnapshot;
 import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,9 +67,9 @@ public class RelocationInsightsQueryServiceImpl implements RelocationInsightsQue
 
     @Override
     public RelocationInsights handle(GetRelocationInsightsQuery query) {
-        var profiles = gymContextFacade.findBranchesByGymId(query.gymId()).stream()
-                .sorted(Comparator.comparing(Branch::getName, Comparator.nullsLast(Comparator.naturalOrder()))
-                        .thenComparing(b -> b.getId().uuid()))
+        var profiles = gymContextFacade.findBranchSnapshotsByGymId(query.gymId()).stream()
+                .sorted(Comparator.comparing(BranchSnapshot::name, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(b -> b.branchId()))
                 .map(branch -> profile(query, branch))
                 .toList();
 
@@ -79,16 +79,16 @@ public class RelocationInsightsQueryServiceImpl implements RelocationInsightsQue
                 branches, suggestions(profiles));
     }
 
-    private BranchProfile profile(GetRelocationInsightsQuery query, Branch branch) {
-        var branchId = branch.getId().uuid();
+    private BranchProfile profile(GetRelocationInsightsQuery query, BranchSnapshot branch) {
+        var branchId = branch.branchId();
         var heatmap = usageAnalyticsQueryService.handle(
                 new GetUsageHeatmapQuery(query.gymId(), branchId, query.from(), query.to()));
-        Map<String, Equipment> equipment = new HashMap<>();
-        for (var e : gymContextFacade.findEquipmentsByBranchId(branchId)) {
-            equipment.put(e.getId().uuid(), e);
+        Map<String, EquipmentSnapshot> equipment = new HashMap<>();
+        for (var e : gymContextFacade.findEquipmentSnapshotsByBranchId(branchId)) {
+            equipment.put(e.equipmentId(), e);
         }
         var totalMinutes = heatmap.equipment().stream().mapToDouble(EquipmentUsage::activeMinutes).sum();
-        var demand = new BranchDemand(branchId, branch.getName(), heatmap.equipmentCount(), round(totalMinutes),
+        var demand = new BranchDemand(branchId, branch.name(), heatmap.equipmentCount(), round(totalMinutes),
                 heatmap.occupancyRate(), classify(heatmap));
         return new BranchProfile(demand, heatmap, equipment);
     }
@@ -135,16 +135,16 @@ public class RelocationInsightsQueryServiceImpl implements RelocationInsightsQue
         return suggestions;
     }
 
-    private static boolean isMovable(Equipment equipment) {
+    private static boolean isMovable(EquipmentSnapshot equipment) {
         return equipment != null
-                && equipment.getStatus() != EquipmentStatus.OUT_OF_SERVICE
-                && equipment.getStatus() != EquipmentStatus.MAINTENANCE;
+                && equipment.status() != EquipmentStatus.OUT_OF_SERVICE
+                && equipment.status() != EquipmentStatus.MAINTENANCE;
     }
 
     private static RelocationSuggestion suggestion(Candidate candidate, BranchDemand target) {
         var source = candidate.source();
         var usage = candidate.usage();
-        var name = candidate.equipment().getEquipmentName();
+        var name = candidate.equipment().equipmentName();
         var reason = String.format(Locale.ROOT,
                 "%s was in use %.1f%% of opening time at %s (low demand, %.1f%% overall), while %s runs at %.1f%% (saturated)",
                 name, usage.utilizationRate(), source.branchName(), source.utilizationRate(),
@@ -159,9 +159,9 @@ public class RelocationInsightsQueryServiceImpl implements RelocationInsightsQue
         return Math.round(value * 10) / 10.0;
     }
 
-    private record BranchProfile(BranchDemand demand, UsageHeatmap heatmap, Map<String, Equipment> equipment) {
+    private record BranchProfile(BranchDemand demand, UsageHeatmap heatmap, Map<String, EquipmentSnapshot> equipment) {
     }
 
-    private record Candidate(BranchDemand source, EquipmentUsage usage, Equipment equipment) {
+    private record Candidate(BranchDemand source, EquipmentUsage usage, EquipmentSnapshot equipment) {
     }
 }

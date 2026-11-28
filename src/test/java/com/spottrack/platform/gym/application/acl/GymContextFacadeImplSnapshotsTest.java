@@ -11,7 +11,6 @@ import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.entities.BranchPersistenceEntity;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.BranchPersistenceRepository;
-import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.GymWhitelistPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.ZonePersistenceRepository;
 import com.spottrack.platform.gym.interfaces.acl.BranchSnapshot;
@@ -46,8 +45,7 @@ class GymContextFacadeImplSnapshotsTest {
                 mock(GymQueryService.class),
                 mock(GymWhitelistPersistenceRepository.class),
                 mock(ZonePersistenceRepository.class),
-                branchRepository,
-                mock(EquipmentPersistenceRepository.class));
+                branchRepository);
     }
 
     @Test

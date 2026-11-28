@@ -1,6 +1,6 @@
 package com.spottrack.platform.notification.application.internal.commandservices;
 
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.notification.domain.model.aggregates.ClientNotification;
@@ -246,10 +246,8 @@ class NotificationCommandServiceImplTest {
     }
 
     private void equipmentIs(EquipmentStatus status) {
-        var equipment = mock(Equipment.class);
-        when(equipment.getStatus()).thenReturn(status);
-        when(equipment.getEquipmentName()).thenReturn("Leg Press");
-        when(gym.findEquipmentById(EQUIPMENT)).thenReturn(Optional.of(equipment));
+        when(gym.findEquipmentSnapshotById(EQUIPMENT)).thenReturn(Optional.of(
+                new EquipmentSnapshot(EQUIPMENT, "Leg Press", null, status, null)));
     }
 
     private static final class InMemoryWatchRepository implements EquipmentWatchRepository {
