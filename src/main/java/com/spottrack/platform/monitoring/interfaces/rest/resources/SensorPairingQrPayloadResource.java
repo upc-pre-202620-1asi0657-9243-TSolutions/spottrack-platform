@@ -10,7 +10,7 @@ public record SensorPairingQrPayloadResource(
         String deviceId,
         @Schema(description = "MQTT password (24 random bytes, Base64 URL without padding). Returned only once")
         String secret,
-        @Schema(description = "Host of the MQTT brokers' load balancer", example = "34.123.45.67")
+        @Schema(description = "Host of the MQTT brokers' load balancer", example = "mqtt.example.com")
         String host,
         @Schema(description = "TLS port of the brokers", example = "8883")
         int port,
