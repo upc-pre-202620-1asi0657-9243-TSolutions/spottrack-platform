@@ -7,6 +7,7 @@ import lombok.Setter;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 /**
@@ -54,6 +55,12 @@ public class UsageSession extends AbstractDomainAggregateRoot<UsageSession> {
     public double minutesWithin(LocalDateTime from, LocalDateTime to) {
         var start = startedAt.isAfter(from) ? startedAt : from;
         var end = endedAt.isBefore(to) ? endedAt : to;
-        return end.isAfter(start) ? Duration.between(start, end).toSeconds() / 60.0 : 0.0;
+        return end.isAfter(start) ? elapsed(start, end).toSeconds() / 60.0 : 0.0;
+    }
+
+    /** Elapsed time between two wall-clock readings, measured on the instant line of the system zone. */
+    private static Duration elapsed(LocalDateTime from, LocalDateTime to) {
+        var zone = ZoneId.systemDefault();
+        return Duration.between(from.atZone(zone).toInstant(), to.atZone(zone).toInstant());
     }
 }

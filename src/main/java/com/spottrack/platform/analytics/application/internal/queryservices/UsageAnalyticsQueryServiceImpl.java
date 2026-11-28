@@ -16,8 +16,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,7 +74,7 @@ public class UsageAnalyticsQueryServiceImpl implements UsageAnalyticsQueryServic
         var now = LocalDateTime.now();
         var from = query.from().atStartOfDay();
         var to = query.to().plusDays(1).atStartOfDay();
-        var windowDays = ChronoUnit.DAYS.between(from, to);
+        var windowDays = ChronoUnit.DAYS.between(query.from(), query.to().plusDays(1));
         var previousFrom = from.minusDays(windowDays);
 
         // One query covers both the window and the one before it.
@@ -245,7 +247,13 @@ public class UsageAnalyticsQueryServiceImpl implements UsageAnalyticsQueryServic
     private static double overlapMinutes(LocalDateTime aStart, LocalDateTime aEnd, LocalDateTime bStart, LocalDateTime bEnd) {
         var start = max(aStart, bStart);
         var end = min(aEnd, bEnd);
-        return end.isAfter(start) ? ChronoUnit.SECONDS.between(start, end) / 60.0 : 0;
+        return end.isAfter(start) ? elapsed(start, end).toSeconds() / 60.0 : 0;
+    }
+
+    /** Elapsed time between two wall-clock readings, measured on the instant line of the system zone. */
+    private static Duration elapsed(LocalDateTime from, LocalDateTime to) {
+        var zone = ZoneId.systemDefault();
+        return Duration.between(from.atZone(zone).toInstant(), to.atZone(zone).toInstant());
     }
 
     private static double rate(double used, double capacity) {
