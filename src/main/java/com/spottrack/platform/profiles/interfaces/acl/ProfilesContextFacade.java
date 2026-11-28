@@ -1,5 +1,8 @@
 package com.spottrack.platform.profiles.interfaces.acl;
 
+import com.spottrack.platform.shared.application.result.ApplicationError;
+import com.spottrack.platform.shared.application.result.Result;
+
 import java.util.Optional;
 
 public interface ProfilesContextFacade {
@@ -14,13 +17,21 @@ public interface ProfilesContextFacade {
      */
     String fetchDniByEmail(String email);
 
-    void provisionAdminProfile(Long userId, String email,
-                               String firstName, String lastName,
-                               String phoneNumber, String dni);
+    /**
+     * Creates the Admin profile of the given IAM user. Idempotent: an existing profile is a success.
+     * Returns the userId on success, or the reason the profile could not be created.
+     */
+    Result<Long, ApplicationError> provisionAdminProfile(Long userId, String email,
+                                                         String firstName, String lastName,
+                                                         String phoneNumber, String dni);
 
-    void provisionBusinessProfile(Long userId, String companyName, String ruc,
-                                  String legalStructure, String companyPhone, String companyEmail,
-                                  String streetAddress, String city, String district);
+    /**
+     * Creates the BusinessProfile of the given IAM user. Idempotent: an existing profile is a success.
+     * Returns the userId on success, or the reason the profile could not be created.
+     */
+    Result<Long, ApplicationError> provisionBusinessProfile(Long userId, String companyName, String ruc,
+                                                            String legalStructure, String companyPhone, String companyEmail,
+                                                            String streetAddress, String city, String district);
 
     /**
      * Returns the gymId of the active gym for the given client.

@@ -9,6 +9,8 @@ import com.spottrack.platform.membership.domain.model.valueobjects.MembershipTie
 import com.spottrack.platform.membership.domain.model.valueobjects.PaymentPurpose;
 import com.spottrack.platform.membership.domain.repositories.MembershipRepository;
 import com.spottrack.platform.profiles.interfaces.acl.ProfilesContextFacade;
+import com.spottrack.platform.shared.application.result.ApplicationError;
+import com.spottrack.platform.shared.application.result.Result;
 import com.spottrack.platform.shared.domain.model.valueobjects.Money;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -58,6 +61,10 @@ class PaymentConfirmedEventHandlerTest {
         });
         when(iamContextFacade.consumePendingRegistration(PENDING_ID)).thenReturn(USER_ID);
         when(iamContextFacade.fetchPendingRegistrationEmail(PENDING_ID)).thenReturn("owner@spotgym.pe");
+        when(profilesContextFacade.provisionAdminProfile(eq(USER_ID), any(), any(), any(), any(), any()))
+                .thenReturn(Result.success(USER_ID));
+        when(profilesContextFacade.provisionBusinessProfile(eq(USER_ID), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Result.success(USER_ID));
 
         handler = new PaymentConfirmedEventHandler(
                 membershipRepository, iamContextFacade, profilesContextFacade, gymContextFacade);
@@ -101,5 +108,31 @@ class PaymentConfirmedEventHandlerTest {
 
         verify(gymContextFacade, never()).provisionGym(anyLong(), anyString());
         assertTrue(storedMemberships.stream().anyMatch(m -> m.getStatus() == MembershipStatus.ACTIVE));
+    }
+
+    @Test
+    void stopsBeforeTheMembershipAndTheGymWhenTheAdminProfileCannotBeProvisioned() {
+        when(iamContextFacade.fetchPendingRegistrationCompanyName(PENDING_ID)).thenReturn("Spot Gym Miraflores");
+        when(profilesContextFacade.provisionAdminProfile(eq(USER_ID), any(), any(), any(), any(), any()))
+                .thenReturn(Result.failure(ApplicationError.validationError("Admin", "email is invalid")));
+
+        handler.on(businessRegistrationEvent());
+
+        verify(profilesContextFacade, never()).provisionBusinessProfile(
+                anyLong(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(gymContextFacade, never()).provisionGym(anyLong(), anyString());
+        assertTrue(storedMemberships.isEmpty());
+    }
+
+    @Test
+    void stopsBeforeTheMembershipAndTheGymWhenTheBusinessProfileCannotBeProvisioned() {
+        when(iamContextFacade.fetchPendingRegistrationCompanyName(PENDING_ID)).thenReturn("Spot Gym Miraflores");
+        when(profilesContextFacade.provisionBusinessProfile(eq(USER_ID), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Result.failure(ApplicationError.validationError("BusinessProfile", "ruc is invalid")));
+
+        handler.on(businessRegistrationEvent());
+
+        verify(gymContextFacade, never()).provisionGym(anyLong(), anyString());
+        assertTrue(storedMemberships.isEmpty());
     }
 }

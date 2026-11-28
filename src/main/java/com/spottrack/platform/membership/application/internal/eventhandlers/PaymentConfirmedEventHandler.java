@@ -11,6 +11,8 @@ import com.spottrack.platform.membership.domain.model.valueobjects.MembershipId;
 import com.spottrack.platform.membership.domain.model.valueobjects.MembershipStatus;
 import com.spottrack.platform.membership.domain.repositories.MembershipRepository;
 import com.spottrack.platform.profiles.interfaces.acl.ProfilesContextFacade;
+import com.spottrack.platform.shared.application.result.ApplicationError;
+import com.spottrack.platform.shared.application.result.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -139,14 +141,25 @@ public class PaymentConfirmedEventHandler {
         var city           = iamContextFacade.fetchPendingRegistrationCity(pendingId);
         var district       = iamContextFacade.fetchPendingRegistrationDistrict(pendingId);
 
-        profilesContextFacade.provisionAdminProfile(userId, email, firstName, lastName, phoneNumber, dni);
+        var adminProfile = profilesContextFacade.provisionAdminProfile(
+                userId, email, firstName, lastName, phoneNumber, dni);
+        if (adminProfile instanceof Result.Failure<Long, ApplicationError> failure) {
+            log.error("Admin profile not provisioned for userId {} — membership and gym not created (payment {}): {}",
+                    userId, event.paymentId(), failure.error());
+            return;
+        }
 
-        profilesContextFacade.provisionBusinessProfile(
+        var businessProfile = profilesContextFacade.provisionBusinessProfile(
                 userId,
                 companyName, ruc, legalStructure,
                 companyPhone, companyEmail,
                 streetAddress, city, district
         );
+        if (businessProfile instanceof Result.Failure<Long, ApplicationError> failure) {
+            log.error("BusinessProfile not provisioned for userId {} — membership and gym not created (payment {}): {}",
+                    userId, event.paymentId(), failure.error());
+            return;
+        }
 
         createAndActivateMembership(userId, event);
 
