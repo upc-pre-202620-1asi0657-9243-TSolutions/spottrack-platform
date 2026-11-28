@@ -1,7 +1,7 @@
 package com.spottrack.platform.membership.interfaces.rest;
 
-import com.spottrack.platform.iam.domain.model.commands.SavePendingRegistrationCommand;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
+import com.spottrack.platform.iam.interfaces.acl.PendingRegistrationRequest;
 import com.spottrack.platform.membership.application.commandservices.PaymentCommandService;
 import com.spottrack.platform.membership.domain.model.commands.InitiateBusinessPaymentCommand;
 import com.spottrack.platform.membership.domain.model.valueobjects.MembershipTier;
@@ -60,7 +60,7 @@ public class BusinessRegistrationController {
     public ResponseEntity<?> registerBusiness(@Valid @RequestBody BusinessRegistrationResource resource) {
         var tier = MembershipTier.valueOf(resource.membershipTier().trim().toUpperCase(Locale.ROOT));
 
-        var savePendingCommand = new SavePendingRegistrationCommand(
+        var pendingRegistration = new PendingRegistrationRequest(
                 resource.email(),
                 resource.password(),
                 resource.firstName(),
@@ -78,7 +78,7 @@ public class BusinessRegistrationController {
                 tier.name()
         );
 
-        var result = iamContextFacade.savePendingRegistration(savePendingCommand)
+        var result = iamContextFacade.savePendingRegistration(pendingRegistration)
                 .flatMap(pendingId -> {
                     var paymentCommand = new InitiateBusinessPaymentCommand(
                             pendingId,
