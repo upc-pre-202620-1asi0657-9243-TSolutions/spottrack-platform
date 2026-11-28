@@ -116,7 +116,7 @@ public class OpenApiConfiguration {
                 "Field username: must be a well-formed email address"));
         responses.put("Unauthorized", new ApiResponse()
                 .description("Missing, expired or invalid bearer token. Rejected by the security filter chain "
-                        + "before reaching the controller, so the body is not an ErrorResource."));
+                        + "before reaching the controller. The response has no body."));
         responses.put("Forbidden", errorResponse(
                 "The authenticated user does not have the required role",
                 "FORBIDDEN", "Access denied to endpoint", "Insufficient role"));
