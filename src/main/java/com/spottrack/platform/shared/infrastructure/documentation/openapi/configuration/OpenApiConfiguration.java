@@ -132,19 +132,42 @@ public class OpenApiConfiguration {
                 "The request violates a business rule",
                 "BUSINESS_RULE_VIOLATION", "Business rule violation: account.deactivated",
                 "This account has been deactivated"));
+        responses.put("MaintenanceForbidden", new ApiResponse()
+                .description("The caller lacks the required role, or the ticket, equipment or technician "
+                        + "belongs to another administrator's gym (or, for technicians, is not assigned to them).")
+                .content(new Content().addMediaType(JSON, new MediaType()
+                        .schema(new Schema<>().$ref(ERROR_RESOURCE_REF))
+                        .addExamples("role", example("Missing role",
+                                "FORBIDDEN", "Access denied to endpoint", "Insufficient role"))
+                        .addExamples("ownership", example("Resource owned by another tenant",
+                                "FORBIDDEN", "Access denied to Maintenance",
+                                "ticketId:5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90")))));
+        responses.put("MaintenanceNotFound", new ApiResponse()
+                .description("The referenced ticket, maintenance request, job or equipment does not exist "
+                        + "(empty body), or the caller's own account could not be resolved (ErrorResource).")
+                .content(new Content().addMediaType(JSON, new MediaType()
+                        .schema(new Schema<>().$ref(ERROR_RESOURCE_REF))
+                        .addExamples("resourceMissing", example("Resource rejected by the command service",
+                                "TECHNICALTICKET_NOT_FOUND",
+                                "TechnicalTicket not found: 5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90", null))
+                        .addExamples("callerMissing", example("Caller account not found",
+                                "ADMIN_NOT_FOUND", "Admin not found: admin@spottrack.com", null)))));
         responses.put("MaintenanceFailure", new ApiResponse()
-                .description("The operation failed in the application layer. Maintenance returns every "
-                        + "application failure (validation, not found, business rule, conflict) as 400; "
-                        + "read `code` to tell them apart.")
+                .description("Invalid payload, or the operation failed in the application layer. These "
+                        + "Maintenance endpoints return every application failure (validation, not found, "
+                        + "conflict, unexpected) as 400; read `code` to tell them apart. "
+                        + "`details` may be null.")
                 .content(new Content().addMediaType(JSON, new MediaType()
                         .schema(new Schema<>().$ref(ERROR_RESOURCE_REF))
                         .addExamples("validation", example("Invalid field",
-                                "VALIDATION_ERROR", "Validation failed: description", "must not be blank"))
+                                "VALIDATION_ERROR", "Validation failed: TechnicalTicket",
+                                "priority must not be null"))
                         .addExamples("notFound", example("Referenced resource missing",
-                                "EQUIPMENT_NOT_FOUND", "Equipment not found: 15", null))
-                        .addExamples("businessRule", example("Business rule violated",
-                                "BUSINESS_RULE_VIOLATION", "Business rule violation: ticket status",
-                                "A completed ticket cannot be reassigned")))));
+                                "MAINTENANCE_NOT_FOUND",
+                                "Maintenance not found: 3a9d6e10-2b4c-4f8e-a1d7-6c5b9e0f1a23", null))
+                        .addExamples("conflict", example("Ticket already exists",
+                                "TECHNICALTICKET_CONFLICT", "Conflict with TechnicalTicket",
+                                "a ticket already exists for maintenance 3a9d6e10-2b4c-4f8e-a1d7-6c5b9e0f1a23")))));
         responses.put("InternalServerError", errorResponse(
                 "Unexpected server error",
                 "UNEXPECTED_ERROR", "Unexpected error in global-exception-handler", "An unexpected error occurred"));
