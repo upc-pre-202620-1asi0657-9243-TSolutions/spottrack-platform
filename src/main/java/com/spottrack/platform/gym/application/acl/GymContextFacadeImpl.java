@@ -22,6 +22,8 @@ import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.Br
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.GymWhitelistPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.ZonePersistenceRepository;
+import com.spottrack.platform.gym.interfaces.acl.BranchSnapshot;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
@@ -173,5 +175,51 @@ public class GymContextFacadeImpl implements GymContextFacade {
         return branchPersistenceRepository.findByGymId(gymId).stream()
                 .map(BranchPersistenceAssembler::toDomainFromPersistence)
                 .toList();
+    }
+
+    @Override
+    public Optional<EquipmentSnapshot> findEquipmentSnapshotById(String equipmentId) {
+        return findEquipmentById(equipmentId).map(GymContextFacadeImpl::toSnapshot);
+    }
+
+    @Override
+    public List<EquipmentSnapshot> findAvailableAlternativeSnapshots(String equipmentName, String excludeEquipmentId) {
+        return toSnapshots(findAvailableAlternatives(equipmentName, excludeEquipmentId));
+    }
+
+    @Override
+    public List<EquipmentSnapshot> findEquipmentSnapshotsByAdminUserId(Long adminUserId) {
+        return toSnapshots(findEquipmentsByAdminUserId(adminUserId));
+    }
+
+    @Override
+    public List<EquipmentSnapshot> findEquipmentSnapshotsByGymId(String gymId) {
+        return toSnapshots(findEquipmentsByGymId(gymId));
+    }
+
+    @Override
+    public List<EquipmentSnapshot> findEquipmentSnapshotsByBranchId(String branchId) {
+        return toSnapshots(findEquipmentsByBranchId(branchId));
+    }
+
+    @Override
+    public List<BranchSnapshot> findBranchSnapshotsByGymId(String gymId) {
+        return findBranchesByGymId(gymId).stream()
+                .map(branch -> new BranchSnapshot(
+                        branch.getId().uuid(), branch.getGymId(), branch.getName(), branch.getAddress()))
+                .toList();
+    }
+
+    private static List<EquipmentSnapshot> toSnapshots(List<Equipment> equipments) {
+        return equipments.stream().map(GymContextFacadeImpl::toSnapshot).toList();
+    }
+
+    private static EquipmentSnapshot toSnapshot(Equipment equipment) {
+        return new EquipmentSnapshot(
+                equipment.getId().uuid(),
+                equipment.getEquipmentName(),
+                equipment.getModel(),
+                equipment.getStatus(),
+                equipment.getZoneId() != null ? equipment.getZoneId().uuid() : null);
     }
 }
