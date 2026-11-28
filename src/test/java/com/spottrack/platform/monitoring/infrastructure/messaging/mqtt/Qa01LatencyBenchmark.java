@@ -104,6 +104,10 @@ class Qa01LatencyBenchmark {
                 return null;
             }
             return Qa01StompProbe.connect(api.baseUrl(), config.jwt(), trackerId);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.out.println("STOMP: interrupted while connecting, STOMP not measured");
+            return null;
         } catch (Exception e) {
             System.out.println("STOMP: could not connect (" + e.getClass().getSimpleName() + ": " + e.getMessage() + "), STOMP not measured");
             return null;
@@ -265,7 +269,10 @@ class Qa01LatencyBenchmark {
             var process = new ProcessBuilder("git", "rev-parse", "--short", "HEAD").redirectErrorStream(true).start();
             var output = new String(process.getInputStream().readAllBytes()).trim();
             return process.waitFor() == 0 && !output.isEmpty() ? output : "unknown";
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return "unknown";
+        } catch (IOException e) {
             return "unknown";
         }
     }

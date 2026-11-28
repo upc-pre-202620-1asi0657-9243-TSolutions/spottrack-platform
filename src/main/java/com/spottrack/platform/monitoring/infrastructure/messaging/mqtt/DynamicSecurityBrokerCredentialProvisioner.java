@@ -125,6 +125,9 @@ public class DynamicSecurityBrokerCredentialProvisioner implements BrokerCredent
                 } else {
                     try {
                         reason = future.get();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        reason = "interrupted";
                     } catch (Exception e) {
                         reason = "unexpected error " + e.getClass().getSimpleName();
                     }
