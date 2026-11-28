@@ -21,7 +21,7 @@ import java.time.format.DateTimeParseException;
 @Component
 public class CompactSensorPayloadTranslator implements SensorPayloadTranslator {
 
-    public static final String PROFILE = "compact-emulator";
+    public static final String PROFILE_NAME = "compact-emulator";
 
     private static final String FIELD = "sensorPayload";
 
@@ -40,7 +40,7 @@ public class CompactSensorPayloadTranslator implements SensorPayloadTranslator {
 
     @Override
     public String profile() {
-        return PROFILE;
+        return PROFILE_NAME;
     }
 
     @Override

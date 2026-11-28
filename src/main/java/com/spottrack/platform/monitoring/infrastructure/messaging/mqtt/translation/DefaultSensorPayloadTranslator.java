@@ -13,7 +13,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class DefaultSensorPayloadTranslator implements SensorPayloadTranslator {
 
-    public static final String PROFILE = PayloadProfileCatalog.DEFAULT_PROFILE;
+    public static final String PROFILE_NAME = PayloadProfileCatalog.DEFAULT_PROFILE;
 
     private final ObjectMapper objectMapper;
 
@@ -26,7 +26,7 @@ public class DefaultSensorPayloadTranslator implements SensorPayloadTranslator {
 
     @Override
     public String profile() {
-        return PROFILE;
+        return PROFILE_NAME;
     }
 
     @Override
