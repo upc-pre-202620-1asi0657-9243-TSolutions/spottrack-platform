@@ -4,14 +4,15 @@ import com.spottrack.platform.maintenance.domain.model.valueobjects.TicketPriori
 import com.spottrack.platform.maintenance.domain.model.valueobjects.TicketType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(description = "Partial update of a technical ticket; null fields are left unchanged")
 public record UpdateTechnicalTicketResource(
-        @Schema
+        @Schema(description = "New description", example = "Treadmill belt slips and makes noise")
         String description,
-        @Schema
+        @Schema(description = "New priority", example = "URGENT")
         TicketPriority priority,
-        @Schema
+        @Schema(description = "New type", example = "CORRECTIVE")
         TicketType type,
-        @Schema(description = "Optional; sets or changes the technician without changing the status")
+        @Schema(description = "Optional; sets or changes the technician without changing the status", example = "9b2e4c71-3f5a-4d8b-b6c0-1e7a2d9f4c35")
         String technicianId
 ) {
 }
