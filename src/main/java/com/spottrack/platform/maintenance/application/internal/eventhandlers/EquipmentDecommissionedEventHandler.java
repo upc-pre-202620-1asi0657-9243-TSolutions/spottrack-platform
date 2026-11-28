@@ -1,6 +1,6 @@
 package com.spottrack.platform.maintenance.application.internal.eventhandlers;
 
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.events.EquipmentStatusUpdatedIntegrationEvent;
 import com.spottrack.platform.maintenance.application.commandServices.MaintenanceCommandService;
 import com.spottrack.platform.maintenance.domain.model.commands.RecommendEquipmentTransfer;

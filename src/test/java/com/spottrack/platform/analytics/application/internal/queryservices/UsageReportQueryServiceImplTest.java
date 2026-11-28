@@ -4,16 +4,13 @@ import com.spottrack.platform.analytics.application.queryservices.UsageAnalytics
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageHeatmapQuery;
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageReportQuery;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
-import com.spottrack.platform.gym.domain.model.valueobjects.ManufacturerId;
-import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +34,7 @@ class UsageReportQueryServiceImplTest {
     private GymContextFacade gymContextFacade;
     private UsageReportQueryServiceImpl service;
     private UsageHeatmap heatmap;
-    private Equipment rower;
+    private EquipmentSnapshot rower;
 
     @BeforeEach
     void setUp() {
@@ -46,13 +43,12 @@ class UsageReportQueryServiceImplTest {
         service = new UsageReportQueryServiceImpl(usageService, gymContextFacade);
         heatmap = new UsageHeatmap(FROM, TO, 6, 22, 1, 10, 5, null, 0, List.of(), List.of(), List.of(), 0, 0, List.of());
         when(usageService.handle(any(GetUsageHeatmapQuery.class))).thenReturn(heatmap);
-        rower = new Equipment(EquipmentStatus.AVAILABLE, "Remo", "R-1", new ManufacturerId("m-1"),
-                BigDecimal.TEN, "USD", new ZoneId("zone-1"));
+        rower = new EquipmentSnapshot("rower-1", "Remo", "R-1", EquipmentStatus.AVAILABLE, "zone-1");
     }
 
     @Test
     void gymReportUsesTheGymHeatmapAndNamesGymAndEquipment() {
-        when(gymContextFacade.findEquipmentsByGymId("gym-1")).thenReturn(List.of(rower));
+        when(gymContextFacade.findEquipmentSnapshotsByGymId("gym-1")).thenReturn(List.of(rower));
         when(gymContextFacade.findGymName("gym-1")).thenReturn(Optional.of("Gym Central"));
 
         var report = service.handle(new GetUsageReportQuery("gym-1", null, FROM, TO));
@@ -64,14 +60,14 @@ class UsageReportQueryServiceImplTest {
         assertSame(heatmap, report.heatmap());
         assertEquals("Gym Central", report.gymName());
         assertNull(report.branchName());
-        assertEquals("Remo", report.equipmentNames().get(rower.getId().uuid()));
+        assertEquals("Remo", report.equipmentNames().get(rower.equipmentId()));
         verify(gymContextFacade, never()).findBranchName(any());
-        verify(gymContextFacade, never()).findEquipmentsByBranchId(any());
+        verify(gymContextFacade, never()).findEquipmentSnapshotsByBranchId(any());
     }
 
     @Test
     void branchReportNamesTheBranchAndOnlyLooksUpItsEquipment() {
-        when(gymContextFacade.findEquipmentsByBranchId("branch-1")).thenReturn(List.of(rower));
+        when(gymContextFacade.findEquipmentSnapshotsByBranchId("branch-1")).thenReturn(List.of(rower));
         when(gymContextFacade.findGymName("gym-1")).thenReturn(Optional.of("Gym Central"));
         when(gymContextFacade.findBranchName("branch-1")).thenReturn(Optional.of("San Isidro"));
 
@@ -82,7 +78,7 @@ class UsageReportQueryServiceImplTest {
         assertEquals("branch-1", captor.getValue().branchId());
         assertEquals("San Isidro", report.branchName());
         assertEquals("Gym Central", report.gymName());
-        verify(gymContextFacade, never()).findEquipmentsByGymId(any());
+        verify(gymContextFacade, never()).findEquipmentSnapshotsByGymId(any());
     }
 
     @Test

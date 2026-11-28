@@ -1,7 +1,7 @@
 package com.spottrack.platform.monitoring.infrastructure.scheduling;
 
 import com.spottrack.platform.monitoring.application.commandServices.SensorPairingCommandService;
-import com.spottrack.platform.monitoring.application.internal.commandcervices.SensorPairingCommandServiceImpl;
+import com.spottrack.platform.monitoring.application.internal.commandservices.SensorPairingCommandServiceImpl;
 import com.spottrack.platform.monitoring.application.ports.BrokerCredentialProvisioner;
 import com.spottrack.platform.monitoring.application.ports.BrokerProvisioningException;
 import com.spottrack.platform.monitoring.application.ports.PairingSecretHasher;

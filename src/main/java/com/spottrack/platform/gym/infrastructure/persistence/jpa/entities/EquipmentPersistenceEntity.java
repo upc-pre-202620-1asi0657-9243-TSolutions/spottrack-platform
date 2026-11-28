@@ -1,7 +1,7 @@
 package com.spottrack.platform.gym.infrastructure.persistence.jpa.entities;
 
 
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.ManufacturerId;
 import com.spottrack.platform.shared.domain.model.valueobjects.Money;
 import com.spottrack.platform.shared.infrastructure.persistence.jpa.entities.AuditableAbstractPersistenceEntity;

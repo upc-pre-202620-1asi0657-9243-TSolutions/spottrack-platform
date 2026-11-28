@@ -11,6 +11,7 @@ import com.spottrack.platform.iam.domain.model.queries.GetUserByUsernameQuery;
 import com.spottrack.platform.iam.domain.model.valueobjects.Roles;
 import com.spottrack.platform.iam.domain.repositories.PendingRegistrationRepository;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
+import com.spottrack.platform.iam.interfaces.acl.PendingRegistrationRequest;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import com.spottrack.platform.shared.domain.model.valueobjects.AlertSeverity;
@@ -66,7 +67,28 @@ public class IamContextFacadeImpl implements IamContextFacade {
     }
 
     @Override
-    public Result<UUID, ApplicationError> savePendingRegistration(SavePendingRegistrationCommand command) {
+    public Result<UUID, ApplicationError> savePendingRegistration(PendingRegistrationRequest request) {
+        SavePendingRegistrationCommand command;
+        try {
+            command = new SavePendingRegistrationCommand(
+                    request.email(),
+                    request.rawPassword(),
+                    request.firstName(),
+                    request.lastName(),
+                    request.phoneNumber(),
+                    request.dni(),
+                    request.companyName(),
+                    request.ruc(),
+                    request.legalStructure(),
+                    request.companyPhone(),
+                    request.companyEmail(),
+                    request.streetAddress(),
+                    request.city(),
+                    request.district(),
+                    request.membershipTier());
+        } catch (IllegalArgumentException e) {
+            return Result.failure(ApplicationError.validationError("PendingRegistration", e.getMessage()));
+        }
         return pendingRegistrationCommandService.handle(command);
     }
 

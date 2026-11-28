@@ -1,6 +1,6 @@
 package com.spottrack.platform.reservation.application.internal.commandservices;
 
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.reservation.application.commandServices.ReservationCommandService;
 import com.spottrack.platform.reservation.domain.model.aggregates.Reservation;
@@ -55,7 +55,7 @@ public class ReservationCommandServiceImpl implements ReservationCommandService 
             var clientId = command.clientId().clientId();
             var now = LocalDateTime.now(clock);
 
-            var equipmentOpt = gymContextFacade.findEquipmentById(equipmentId);
+            var equipmentOpt = gymContextFacade.findEquipmentSnapshotById(equipmentId);
             if (equipmentOpt.isEmpty()) {
                 return Result.failure(ApplicationError.notFound("Equipment", equipmentId));
             }
@@ -67,13 +67,13 @@ public class ReservationCommandServiceImpl implements ReservationCommandService 
             var expiredAny = expireStaleHoldOnEquipment(equipmentId, now);
             expiredAny |= expireStaleHoldsOfClient(clientId, now);
             if (expiredAny) {
-                equipmentOpt = gymContextFacade.findEquipmentById(equipmentId);
+                equipmentOpt = gymContextFacade.findEquipmentSnapshotById(equipmentId);
                 if (equipmentOpt.isEmpty()) {
                     return Result.failure(ApplicationError.notFound("Equipment", equipmentId));
                 }
             }
 
-            var status = equipmentOpt.get().getStatus();
+            var status = equipmentOpt.get().status();
             if (status == EquipmentStatus.OCCUPIED || status == EquipmentStatus.RESERVED) {
                 return Result.failure(ApplicationError.conflict("Reservation", EQUIPMENT_ALREADY_RESERVED));
             }
@@ -166,11 +166,11 @@ public class ReservationCommandServiceImpl implements ReservationCommandService 
     }
 
     private java.util.Optional<ApplicationError> checkEquipmentAvailable(String equipmentId) {
-        var equipmentOpt = gymContextFacade.findEquipmentById(equipmentId);
+        var equipmentOpt = gymContextFacade.findEquipmentSnapshotById(equipmentId);
         if (equipmentOpt.isEmpty()) {
             return java.util.Optional.of(ApplicationError.notFound("Equipment", equipmentId));
         }
-        if (equipmentOpt.get().getStatus() != EquipmentStatus.AVAILABLE) {
+        if (equipmentOpt.get().status() != EquipmentStatus.AVAILABLE) {
             return java.util.Optional.of(ApplicationError.validationError("Reservation", "Equipment is not available for reservation"));
         }
         return java.util.Optional.empty();

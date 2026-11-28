@@ -8,7 +8,6 @@ import com.spottrack.platform.gym.domain.model.aggregates.Gym;
 import com.spottrack.platform.gym.domain.model.commands.CreateGym;
 import com.spottrack.platform.gym.domain.model.queries.GetGymsByAdminUserId;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.BranchPersistenceRepository;
-import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.EquipmentPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.GymWhitelistPersistenceRepository;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories.ZonePersistenceRepository;
 import com.spottrack.platform.shared.application.result.ApplicationError;
@@ -46,8 +45,7 @@ class GymContextFacadeImplProvisionGymTest {
                 gymQueryService,
                 mock(GymWhitelistPersistenceRepository.class),
                 mock(ZonePersistenceRepository.class),
-                mock(BranchPersistenceRepository.class),
-                mock(EquipmentPersistenceRepository.class));
+                mock(BranchPersistenceRepository.class));
     }
 
     @Test

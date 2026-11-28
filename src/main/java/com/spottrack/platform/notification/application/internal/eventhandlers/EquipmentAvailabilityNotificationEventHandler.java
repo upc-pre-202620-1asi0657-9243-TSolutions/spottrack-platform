@@ -1,6 +1,6 @@
 package com.spottrack.platform.notification.application.internal.eventhandlers;
 
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.events.EquipmentStatusUpdatedIntegrationEvent;
 import com.spottrack.platform.notification.application.commandservices.NotificationCommandService;
 import com.spottrack.platform.notification.domain.model.commands.NotifyAvailabilityChangeCommand;

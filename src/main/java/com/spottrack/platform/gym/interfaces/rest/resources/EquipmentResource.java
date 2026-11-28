@@ -1,6 +1,6 @@
 package com.spottrack.platform.gym.interfaces.rest.resources;
 
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.domain.model.valueobjects.ManufacturerId;
 import io.swagger.v3.oas.annotations.media.Schema;
 

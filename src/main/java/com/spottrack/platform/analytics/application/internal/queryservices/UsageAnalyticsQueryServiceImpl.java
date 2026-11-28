@@ -9,8 +9,8 @@ import com.spottrack.platform.analytics.domain.model.valueobjects.EquipmentUsage
 import com.spottrack.platform.analytics.domain.model.valueobjects.HourlyOccupancy;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageHeatmap;
 import com.spottrack.platform.analytics.domain.repositories.UsageSessionRepository;
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -63,11 +63,11 @@ public class UsageAnalyticsQueryServiceImpl implements UsageAnalyticsQueryServic
     @Override
     public UsageHeatmap handle(GetUsageHeatmapQuery query) {
         var equipment = (query.branchId() != null
-                ? gymContextFacade.findEquipmentsByBranchId(query.branchId())
-                : gymContextFacade.findEquipmentsByGymId(query.gymId())).stream()
-                .filter(e -> e.getStatus() != EquipmentStatus.DECOMMISSIONED)
+                ? gymContextFacade.findEquipmentSnapshotsByBranchId(query.branchId())
+                : gymContextFacade.findEquipmentSnapshotsByGymId(query.gymId())).stream()
+                .filter(e -> e.status() != EquipmentStatus.DECOMMISSIONED)
                 .toList();
-        var equipmentIds = equipment.stream().map(e -> e.getId().uuid()).toList();
+        var equipmentIds = equipment.stream().map(e -> e.equipmentId()).toList();
 
         var now = LocalDateTime.now();
         var from = query.from().atStartOfDay();
@@ -136,7 +136,7 @@ public class UsageAnalyticsQueryServiceImpl implements UsageAnalyticsQueryServic
         return (int) equipmentIds.stream().filter(id -> !used.contains(id)).count();
     }
 
-    private List<EquipmentUsage> equipmentUsage(List<Equipment> equipment, List<UsageSession> sessions,
+    private List<EquipmentUsage> equipmentUsage(List<EquipmentSnapshot> equipment, List<UsageSession> sessions,
                                                 LocalDateTime from, LocalDateTime to) {
         Map<String, Double> minutes = new HashMap<>();
         Map<String, Integer> counts = new HashMap<>();
@@ -150,9 +150,9 @@ public class UsageAnalyticsQueryServiceImpl implements UsageAnalyticsQueryServic
         var openMinutes = openMinutesBetween(from, to);
 
         return equipment.stream().map(e -> {
-            var id = e.getId().uuid();
+            var id = e.equipmentId();
             var used = minutes.getOrDefault(id, 0.0);
-            return new EquipmentUsage(id, e.getZoneId() != null ? e.getZoneId().uuid() : null,
+            return new EquipmentUsage(id, e.zoneId(),
                     round(used), counts.getOrDefault(id, 0),
                     openMinutes > 0 ? round(Math.min(100, used / openMinutes * 100)) : 0,
                     busiest > 0 ? round(used / busiest, 3) : 0);

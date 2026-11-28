@@ -2,7 +2,7 @@ package com.spottrack.platform.gym.application.internal.eventhandlers;
 
 import com.spottrack.platform.gym.application.commandServices.EquipmentCommandService;
 import com.spottrack.platform.gym.domain.model.commands.UpdateEquipmentStatus;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.maintenance.interfaces.events.EquipmentOutOfServiceIntegrationEvent;
 import com.spottrack.platform.shared.application.result.Result;
 import lombok.extern.slf4j.Slf4j;

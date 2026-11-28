@@ -4,7 +4,7 @@ import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.monitoring.application.commandServices.CameraSensorCommandService;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
-import com.spottrack.platform.monitoring.application.queryServices.CameraSensorQueryService;
+import com.spottrack.platform.monitoring.application.queryservices.CameraSensorQueryService;
 import com.spottrack.platform.monitoring.domain.model.aggregates.SessionTracker;
 import com.spottrack.platform.monitoring.domain.model.queries.GetAllCameraSensorsQuery;
 import com.spottrack.platform.monitoring.interfaces.rest.resources.CameraSensorResource;
@@ -65,8 +65,8 @@ public class CameraSensorController {
     }
 
     private SessionTrackerResource toEnrichedResource(SessionTracker tracker) {
-        var equipmentName = gymContextFacade.findEquipmentById(tracker.getEquipmentId().uuid())
-                .map(equipment -> equipment.getEquipmentName())
+        var equipmentName = gymContextFacade.findEquipmentSnapshotById(tracker.getEquipmentId().uuid())
+                .map(equipment -> equipment.equipmentName())
                 .orElse(null);
 
         Long clientId = null;
@@ -87,7 +87,7 @@ public class CameraSensorController {
         return cameraSensorQueryService.handle(new GetAllCameraSensorsQuery()).stream()
                 .map(sensor -> CameraSensorResourceFromEntity.toResourceFromEntity(
                         sensor,
-                        gymContextFacade.findEquipmentById(sensor.getEquipmentId().uuid()).orElse(null)
+                        gymContextFacade.findEquipmentSnapshotById(sensor.getEquipmentId().uuid()).orElse(null)
                 ))
                 .toList();
     }
@@ -96,15 +96,15 @@ public class CameraSensorController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<CameraSensorResource> getMyCameraSensors(Authentication authentication) {
         var adminUserId = iamContextFacade.fetchUserIdByUsername(authentication.getName()).orElse(0L);
-        Set<String> myEquipmentIds = gymContextFacade.findEquipmentsByAdminUserId(adminUserId).stream()
-                .map(equipment -> equipment.getId().uuid())
+        Set<String> myEquipmentIds = gymContextFacade.findEquipmentSnapshotsByAdminUserId(adminUserId).stream()
+                .map(equipment -> equipment.equipmentId())
                 .collect(Collectors.toSet());
 
         return cameraSensorQueryService.handle(new GetAllCameraSensorsQuery()).stream()
                 .filter(sensor -> myEquipmentIds.contains(sensor.getEquipmentId().uuid()))
                 .map(sensor -> CameraSensorResourceFromEntity.toResourceFromEntity(
                         sensor,
-                        gymContextFacade.findEquipmentById(sensor.getEquipmentId().uuid()).orElse(null)
+                        gymContextFacade.findEquipmentSnapshotById(sensor.getEquipmentId().uuid()).orElse(null)
                 ))
                 .toList();
     }
@@ -124,7 +124,7 @@ public class CameraSensorController {
                 result,
                 sensor -> CameraSensorResourceFromEntity.toResourceFromEntity(
                         sensor,
-                        gymContextFacade.findEquipmentById(sensor.getEquipmentId().uuid()).orElse(null)
+                        gymContextFacade.findEquipmentSnapshotById(sensor.getEquipmentId().uuid()).orElse(null)
                 ),
                 HttpStatus.CREATED
         );

@@ -10,7 +10,7 @@ import com.spottrack.platform.monitoring.application.commandServices.MotionSenso
 import com.spottrack.platform.monitoring.application.commandServices.SensorPairingCommandService;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
 import com.spottrack.platform.monitoring.application.ports.QrCodeRenderer;
-import com.spottrack.platform.monitoring.application.queryServices.MotionSensorQueryService;
+import com.spottrack.platform.monitoring.application.queryservices.MotionSensorQueryService;
 import com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor;
 import com.spottrack.platform.monitoring.domain.model.commands.IssueSensorPairingCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.RegisterMotionSensorCommand;

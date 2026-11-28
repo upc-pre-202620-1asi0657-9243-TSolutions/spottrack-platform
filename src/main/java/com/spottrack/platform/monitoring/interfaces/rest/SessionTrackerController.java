@@ -3,7 +3,7 @@ package com.spottrack.platform.monitoring.interfaces.rest;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
-import com.spottrack.platform.monitoring.application.queryServices.SessionTrackerQueryService;
+import com.spottrack.platform.monitoring.application.queryservices.SessionTrackerQueryService;
 import com.spottrack.platform.monitoring.domain.model.aggregates.SessionTracker;
 import com.spottrack.platform.monitoring.domain.model.commands.EndUsageSessionCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.VerifyUsageSessionCommand;
@@ -67,8 +67,8 @@ public class SessionTrackerController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<SessionTrackerResource> getMySessionTrackers(Authentication authentication) {
         var adminUserId = iamContextFacade.fetchUserIdByUsername(authentication.getName()).orElse(0L);
-        Set<String> myEquipmentIds = gymContextFacade.findEquipmentsByAdminUserId(adminUserId).stream()
-                .map(equipment -> equipment.getId().uuid())
+        Set<String> myEquipmentIds = gymContextFacade.findEquipmentSnapshotsByAdminUserId(adminUserId).stream()
+                .map(equipment -> equipment.equipmentId())
                 .collect(Collectors.toSet());
 
         return sessionTrackerQueryService.handle(new GetAllSessionTrackersQuery()).stream()
@@ -138,8 +138,8 @@ public class SessionTrackerController {
     }
 
     private SessionTrackerResource toEnrichedResource(SessionTracker tracker, java.time.LocalTime calculatedTrueActivity) {
-        var equipmentName = gymContextFacade.findEquipmentById(tracker.getEquipmentId().uuid())
-                .map(equipment -> equipment.getEquipmentName())
+        var equipmentName = gymContextFacade.findEquipmentSnapshotById(tracker.getEquipmentId().uuid())
+                .map(equipment -> equipment.equipmentName())
                 .orElse(null);
 
         Long clientId = null;

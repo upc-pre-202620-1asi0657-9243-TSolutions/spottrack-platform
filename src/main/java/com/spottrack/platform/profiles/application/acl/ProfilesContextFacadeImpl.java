@@ -63,49 +63,63 @@ public class ProfilesContextFacadeImpl implements ProfilesContextFacade {
     }
 
     @Override
-    public void provisionAdminProfile(Long userId, String email,
-                                      String firstName, String lastName,
-                                      String phoneNumber, String dni) {
+    public Result<Long, ApplicationError> provisionAdminProfile(Long userId, String email,
+                                                                String firstName, String lastName,
+                                                                String phoneNumber, String dni) {
         var existing = adminQueryService.handle(new GetAdminByUserIdQuery(userId));
         if (existing.isPresent()) {
             log.info("Admin profile already exists for userId {}, skipping", userId);
-            return;
+            return Result.success(userId);
         }
-        var result = adminCommandService.handle(
-                new CreateAdminCommand(userId, new EmailAddress(email), firstName, lastName, phoneNumber, dni));
-        switch (result) {
-            case Result.Success<?, ?> ignored ->
-                    log.info("Admin profile provisioned for userId {}", userId);
+        Result<?, ApplicationError> result;
+        try {
+            result = adminCommandService.handle(
+                    new CreateAdminCommand(userId, new EmailAddress(email), firstName, lastName, phoneNumber, dni));
+        } catch (IllegalArgumentException e) {
+            result = Result.failure(ApplicationError.validationError("Admin", e.getMessage()));
+        }
+        return switch (result) {
+            case Result.Success<?, ApplicationError> ignored -> {
+                log.info("Admin profile provisioned for userId {}", userId);
+                yield Result.success(userId);
+            }
             case Result.Failure<?, ApplicationError> f -> {
                 log.error("Failed to provision Admin profile for userId {}: {}", userId, f.error());
-                throw new RuntimeException("Admin provisioning failed: " + f.error().message());
+                yield Result.failure(f.error());
             }
-        }
+        };
     }
 
     @Override
-    public void provisionBusinessProfile(Long userId, String companyName, String ruc,
-                                         String legalStructure, String companyPhone, String companyEmail,
-                                         String streetAddress, String city, String district) {
-        var businessInfo = new BusinessInfo(
-                companyName, ruc, legalStructure,
-                new PhoneNumber(companyPhone),
-                new EmailAddress(companyEmail),
-                streetAddress, city, district
-        );
-        var result = businessProfileCommandService.handle(new CreateBusinessProfileCommand(userId, businessInfo));
-        switch (result) {
-            case Result.Success<?, ?> ignored ->
-                    log.info("BusinessProfile provisioned for userId {}", userId);
-            case Result.Failure<?, ApplicationError> f -> {
-                if (f.error().code().endsWith("_CONFLICT")) {
-                    log.info("BusinessProfile already exists for userId {}, skipping", userId);
-                    return;
-                }
-                log.error("Failed to provision BusinessProfile for userId {}: {}", userId, f.error());
-                throw new RuntimeException("BusinessProfile provisioning failed: " + f.error().message());
-            }
+    public Result<Long, ApplicationError> provisionBusinessProfile(Long userId, String companyName, String ruc,
+                                                                   String legalStructure, String companyPhone, String companyEmail,
+                                                                   String streetAddress, String city, String district) {
+        Result<?, ApplicationError> result;
+        try {
+            var businessInfo = new BusinessInfo(
+                    companyName, ruc, legalStructure,
+                    new PhoneNumber(companyPhone),
+                    new EmailAddress(companyEmail),
+                    streetAddress, city, district
+            );
+            result = businessProfileCommandService.handle(new CreateBusinessProfileCommand(userId, businessInfo));
+        } catch (IllegalArgumentException e) {
+            result = Result.failure(ApplicationError.validationError("BusinessProfile", e.getMessage()));
         }
+        return switch (result) {
+            case Result.Success<?, ApplicationError> ignored -> {
+                log.info("BusinessProfile provisioned for userId {}", userId);
+                yield Result.success(userId);
+            }
+            case Result.Failure<?, ApplicationError> f when f.error().code().endsWith("_CONFLICT") -> {
+                log.info("BusinessProfile already exists for userId {}, skipping", userId);
+                yield Result.success(userId);
+            }
+            case Result.Failure<?, ApplicationError> f -> {
+                log.error("Failed to provision BusinessProfile for userId {}: {}", userId, f.error());
+                yield Result.failure(f.error());
+            }
+        };
     }
 
     @Override

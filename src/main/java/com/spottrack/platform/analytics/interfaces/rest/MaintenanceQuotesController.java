@@ -10,6 +10,7 @@ import com.spottrack.platform.analytics.domain.model.commands.RequestSparePartsC
 import com.spottrack.platform.analytics.domain.model.queries.GetAllMaintenanceQuotesQuery;
 import com.spottrack.platform.analytics.interfaces.rest.resources.MaintenanceQuoteResource;
 import com.spottrack.platform.analytics.interfaces.rest.transform.MaintenanceQuoteResourceFromEntityAssembler;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.shared.application.result.ApplicationError;
@@ -63,8 +64,8 @@ public class MaintenanceQuotesController {
     @PreAuthorize("hasRole('ADMIN')")
     public List<MaintenanceQuoteResource> getMyMaintenanceQuotes(Authentication authentication) {
         var adminUserId = iamContextFacade.fetchUserIdByUsername(authentication.getName()).orElse(0L);
-        Set<String> myEquipmentIds = gymContextFacade.findEquipmentsByAdminUserId(adminUserId).stream()
-                .map(equipment -> equipment.getId().uuid())
+        Set<String> myEquipmentIds = gymContextFacade.findEquipmentSnapshotsByAdminUserId(adminUserId).stream()
+                .map(EquipmentSnapshot::equipmentId)
                 .collect(Collectors.toSet());
 
         return maintenanceQuoteQueryService.handle(new GetAllMaintenanceQuotesQuery()).stream()

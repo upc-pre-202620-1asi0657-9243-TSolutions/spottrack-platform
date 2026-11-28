@@ -7,10 +7,8 @@ import com.spottrack.platform.analytics.domain.model.valueobjects.DayHourOccupan
 import com.spottrack.platform.analytics.domain.model.valueobjects.EquipmentUsage;
 import com.spottrack.platform.analytics.domain.model.valueobjects.HourlyOccupancy;
 import com.spottrack.platform.analytics.domain.repositories.UsageSessionRepository;
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
-import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +38,7 @@ class UsageAnalyticsQueryServiceImplTest {
     void setUp() {
         UsageSessionRepository repository = new InMemoryUsageSessionRepository(sessions);
         service = new UsageAnalyticsQueryServiceImpl(repository, gymContextFacade, 6, 22);
-        when(gymContextFacade.findEquipmentsByGymId("gym")).thenReturn(List.of(
+        when(gymContextFacade.findEquipmentSnapshotsByGymId("gym")).thenReturn(List.of(
                 equipment("A", EquipmentStatus.AVAILABLE),
                 equipment("B", EquipmentStatus.OCCUPIED),
                 equipment("C", EquipmentStatus.DECOMMISSIONED)));
@@ -147,12 +145,8 @@ class UsageAnalyticsQueryServiceImplTest {
         sessions.add(new UsageSession(null, equipmentId, start, end));
     }
 
-    private static Equipment equipment(String id, EquipmentStatus status) {
-        var equipment = new Equipment();
-        equipment.setId(new EquipmentId(id));
-        equipment.setStatus(status);
-        equipment.setZoneId(new ZoneId("zone"));
-        return equipment;
+    private static EquipmentSnapshot equipment(String id, EquipmentStatus status) {
+        return new EquipmentSnapshot(id, null, null, status, "zone");
     }
 
     private static DayHourOccupancy slot(List<DayHourOccupancy> slots, DayOfWeek day, int hour) {

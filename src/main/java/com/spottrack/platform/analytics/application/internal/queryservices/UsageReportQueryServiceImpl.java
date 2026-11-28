@@ -5,7 +5,7 @@ import com.spottrack.platform.analytics.application.queryservices.UsageReportQue
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageHeatmapQuery;
 import com.spottrack.platform.analytics.domain.model.queries.GetUsageReportQuery;
 import com.spottrack.platform.analytics.domain.model.valueobjects.UsageReport;
-import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
+import com.spottrack.platform.gym.interfaces.acl.EquipmentSnapshot;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import org.springframework.stereotype.Service;
 
@@ -31,11 +31,11 @@ public class UsageReportQueryServiceImpl implements UsageReportQueryService {
                 new GetUsageHeatmapQuery(query.gymId(), query.branchId(), query.from(), query.to()));
 
         var equipment = query.branchId() != null
-                ? gymContextFacade.findEquipmentsByBranchId(query.branchId())
-                : gymContextFacade.findEquipmentsByGymId(query.gymId());
+                ? gymContextFacade.findEquipmentSnapshotsByBranchId(query.branchId())
+                : gymContextFacade.findEquipmentSnapshotsByGymId(query.gymId());
         Map<String, String> equipmentNames = new HashMap<>();
-        for (Equipment e : equipment) {
-            equipmentNames.put(e.getId().uuid(), e.getEquipmentName());
+        for (EquipmentSnapshot e : equipment) {
+            equipmentNames.put(e.equipmentId(), e.equipmentName());
         }
 
         var gymName = gymContextFacade.findGymName(query.gymId()).orElse(null);

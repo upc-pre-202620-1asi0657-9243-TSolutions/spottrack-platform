@@ -1,6 +1,6 @@
 package com.spottrack.platform.gym.domain.model.events;
 
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 
 /**
  * Domain event published when an equipment status has been updated.

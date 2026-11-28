@@ -2,7 +2,7 @@ package com.spottrack.platform.gym.infrastructure.persistence.jpa.repositories;
 
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
-import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
+import com.spottrack.platform.shared.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.entities.EquipmentPersistenceEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 

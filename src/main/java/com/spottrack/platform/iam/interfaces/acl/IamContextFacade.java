@@ -1,6 +1,5 @@
 package com.spottrack.platform.iam.interfaces.acl;
 
-import com.spottrack.platform.iam.domain.model.commands.SavePendingRegistrationCommand;
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import com.spottrack.platform.shared.domain.model.valueobjects.AlertSeverity;
@@ -16,7 +15,11 @@ public interface IamContextFacade {
     /** Whether the given user has opted in to being notified for alerts of this severity. */
     boolean shouldNotify(Long userId, AlertSeverity severity);
 
-    Result<UUID, ApplicationError> savePendingRegistration(SavePendingRegistrationCommand command);
+    /**
+     * Parks a business registration until its payment is confirmed.
+     * Returns the pending registration id, or a VALIDATION_ERROR when a required field is missing.
+     */
+    Result<UUID, ApplicationError> savePendingRegistration(PendingRegistrationRequest request);
     boolean existsPendingRegistrationByEmail(String email);
 
     Long consumePendingRegistration(UUID registrationId);
