@@ -1,4 +1,4 @@
-package com.spottrack.platform.monitoring.application.internal.eventhandler;
+package com.spottrack.platform.monitoring.application.internal.eventhandlers;
 
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
 import com.spottrack.platform.monitoring.domain.model.commands.CalculateSessionTimeCommand;

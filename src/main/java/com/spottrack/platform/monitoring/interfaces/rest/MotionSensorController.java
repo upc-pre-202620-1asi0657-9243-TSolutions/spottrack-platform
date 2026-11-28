@@ -4,7 +4,7 @@ import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.monitoring.application.commandServices.MotionSensorCommandService;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
-import com.spottrack.platform.monitoring.application.queryServices.MotionSensorQueryService;
+import com.spottrack.platform.monitoring.application.queryservices.MotionSensorQueryService;
 import com.spottrack.platform.monitoring.domain.model.aggregates.SessionTracker;
 import com.spottrack.platform.monitoring.domain.model.queries.GetAllMotionSensorsQuery;
 import com.spottrack.platform.monitoring.interfaces.rest.resources.CaptureMotionSensorReadingResource;

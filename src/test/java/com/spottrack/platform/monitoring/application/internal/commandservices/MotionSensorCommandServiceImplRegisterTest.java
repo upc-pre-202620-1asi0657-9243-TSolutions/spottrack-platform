@@ -1,4 +1,4 @@
-package com.spottrack.platform.monitoring.application.internal.commandcervices;
+package com.spottrack.platform.monitoring.application.internal.commandservices;
 
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;

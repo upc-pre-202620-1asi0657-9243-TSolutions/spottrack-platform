@@ -1,6 +1,6 @@
 package com.spottrack.platform.monitoring.application.internal.queryservices;
 
-import com.spottrack.platform.monitoring.application.queryServices.CameraSensorQueryService;
+import com.spottrack.platform.monitoring.application.queryservices.CameraSensorQueryService;
 import com.spottrack.platform.monitoring.domain.model.aggregates.CameraSensor;
 import com.spottrack.platform.monitoring.domain.model.queries.GetAllCameraSensorsQuery;
 import com.spottrack.platform.monitoring.domain.repositories.CameraSensorRepository;

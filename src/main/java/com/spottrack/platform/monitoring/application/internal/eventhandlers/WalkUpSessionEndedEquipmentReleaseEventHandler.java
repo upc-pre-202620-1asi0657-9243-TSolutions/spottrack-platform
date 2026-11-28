@@ -1,4 +1,4 @@
-package com.spottrack.platform.monitoring.application.internal.eventhandler;
+package com.spottrack.platform.monitoring.application.internal.eventhandlers;
 
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentStatus;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;

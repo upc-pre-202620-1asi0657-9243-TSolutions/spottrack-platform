@@ -1,7 +1,7 @@
-package com.spottrack.platform.monitoring.application.internal.eventhandler;
+package com.spottrack.platform.monitoring.application.internal.eventhandlers;
 
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
-import com.spottrack.platform.monitoring.application.queryServices.SessionTrackerQueryService;
+import com.spottrack.platform.monitoring.application.queryservices.SessionTrackerQueryService;
 import com.spottrack.platform.monitoring.domain.model.commands.EndUsageSessionCommand;
 import com.spottrack.platform.monitoring.domain.model.events.UsageSessionVerifiedEvent;
 import com.spottrack.platform.monitoring.domain.model.queries.GetSessionTrackerByIdQuery;

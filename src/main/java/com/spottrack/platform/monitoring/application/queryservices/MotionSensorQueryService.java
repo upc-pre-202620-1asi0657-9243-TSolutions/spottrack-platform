@@ -1,4 +1,4 @@
-package com.spottrack.platform.monitoring.application.queryServices;
+package com.spottrack.platform.monitoring.application.queryservices;
 
 import com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor;
 import com.spottrack.platform.monitoring.domain.model.queries.GetAllMotionSensorsQuery;

@@ -1,4 +1,4 @@
-package com.spottrack.platform.monitoring.application.internal.eventhandler;
+package com.spottrack.platform.monitoring.application.internal.eventhandlers;
 
 import com.spottrack.platform.monitoring.domain.model.events.UsageSessionEndedEvent;
 import com.spottrack.platform.monitoring.interfaces.events.SessionTrackerEndedIntegrationEvent;

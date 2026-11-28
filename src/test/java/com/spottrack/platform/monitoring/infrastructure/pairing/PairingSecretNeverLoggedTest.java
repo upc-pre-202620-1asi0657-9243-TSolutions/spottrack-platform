@@ -5,7 +5,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.ThrowableProxyUtil;
 import ch.qos.logback.core.read.ListAppender;
-import com.spottrack.platform.monitoring.application.internal.commandcervices.SensorPairingCommandServiceImpl;
+import com.spottrack.platform.monitoring.application.internal.commandservices.SensorPairingCommandServiceImpl;
 import com.spottrack.platform.monitoring.application.ports.SensorPairingSettings;
 import com.spottrack.platform.monitoring.domain.model.aggregates.MotionSensor;
 import com.spottrack.platform.monitoring.domain.model.commands.ExpireDueSensorPairingsCommand;

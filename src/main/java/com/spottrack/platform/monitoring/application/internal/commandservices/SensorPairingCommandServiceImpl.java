@@ -1,4 +1,4 @@
-package com.spottrack.platform.monitoring.application.internal.commandcervices;
+package com.spottrack.platform.monitoring.application.internal.commandservices;
 
 import com.spottrack.platform.monitoring.application.commandServices.SensorPairingCommandService;
 import com.spottrack.platform.monitoring.application.ports.BrokerCredentialProvisioner;

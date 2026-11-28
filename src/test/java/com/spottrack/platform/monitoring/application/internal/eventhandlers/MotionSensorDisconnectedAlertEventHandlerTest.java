@@ -1,4 +1,4 @@
-package com.spottrack.platform.monitoring.application.internal.eventhandler;
+package com.spottrack.platform.monitoring.application.internal.eventhandlers;
 
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;

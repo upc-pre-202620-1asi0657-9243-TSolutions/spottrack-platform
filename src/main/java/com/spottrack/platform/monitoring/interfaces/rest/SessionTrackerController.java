@@ -3,7 +3,7 @@ package com.spottrack.platform.monitoring.interfaces.rest;
 import com.spottrack.platform.gym.interfaces.acl.GymContextFacade;
 import com.spottrack.platform.iam.interfaces.acl.IamContextFacade;
 import com.spottrack.platform.monitoring.application.commandServices.SessionTrackerCommandService;
-import com.spottrack.platform.monitoring.application.queryServices.SessionTrackerQueryService;
+import com.spottrack.platform.monitoring.application.queryservices.SessionTrackerQueryService;
 import com.spottrack.platform.monitoring.domain.model.aggregates.SessionTracker;
 import com.spottrack.platform.monitoring.domain.model.commands.EndUsageSessionCommand;
 import com.spottrack.platform.monitoring.domain.model.commands.VerifyUsageSessionCommand;
