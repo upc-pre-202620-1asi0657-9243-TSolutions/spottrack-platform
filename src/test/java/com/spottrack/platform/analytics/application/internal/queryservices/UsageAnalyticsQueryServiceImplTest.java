@@ -125,7 +125,7 @@ class UsageAnalyticsQueryServiceImplTest {
         var heatmap = service.handle(new GetUsageHeatmapQuery("gym", null, DAY, DAY));
 
         assertEquals(16, heatmap.hourlyByDay().size());
-        assertTrue(heatmap.hourlyByDay().stream().allMatch(o -> o.dayOfWeek() == DayOfWeek.MONDAY));
+        assertTrue(heatmap.hourlyByDay().stream().allMatch(o -> DayOfWeek.MONDAY.equals(o.dayOfWeek())));
         assertEquals(50.0, slot(heatmap.hourlyByDay(), DayOfWeek.MONDAY, 8).occupancyRate());
     }
 
@@ -150,7 +150,7 @@ class UsageAnalyticsQueryServiceImplTest {
     }
 
     private static DayHourOccupancy slot(List<DayHourOccupancy> slots, DayOfWeek day, int hour) {
-        return slots.stream().filter(o -> o.dayOfWeek() == day && o.hour() == hour).findFirst().orElseThrow();
+        return slots.stream().filter(o -> day.equals(o.dayOfWeek()) && o.hour() == hour).findFirst().orElseThrow();
     }
 
     private static EquipmentUsage usageOf(List<EquipmentUsage> usage, String equipmentId) {
