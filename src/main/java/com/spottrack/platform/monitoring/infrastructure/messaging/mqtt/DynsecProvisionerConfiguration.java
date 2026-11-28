@@ -1,5 +1,6 @@
 package com.spottrack.platform.monitoring.infrastructure.messaging.mqtt;
 
+import com.spottrack.platform.monitoring.application.ports.BrokerCredentialProvisioner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.convert.DurationStyle;
@@ -21,7 +22,7 @@ import java.util.List;
 @ConditionalOnProperty(name = "pairing.provisioner.mode", havingValue = "dynsec")
 public class DynsecProvisionerConfiguration {
 
-    @Bean
+    @Bean(BrokerCredentialProvisioner.BEAN_NAME)
     public DynamicSecurityBrokerCredentialProvisioner dynamicSecurityBrokerCredentialProvisioner(
             @Value("${mqtt.broker-urls:}") String brokerUrls,
             @Value("${mqtt.ca-cert:}") String caCertificate,

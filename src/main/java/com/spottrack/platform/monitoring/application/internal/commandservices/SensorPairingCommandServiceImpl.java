@@ -19,6 +19,7 @@ import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
@@ -45,6 +46,7 @@ public class SensorPairingCommandServiceImpl implements SensorPairingCommandServ
 
     public SensorPairingCommandServiceImpl(MotionSensorRepository motionSensorRepository,
                                            SensorPairingRepository sensorPairingRepository,
+                                           @Qualifier(BrokerCredentialProvisioner.BEAN_NAME)
                                            BrokerCredentialProvisioner brokerCredentialProvisioner,
                                            PairingSecretHasher pairingSecretHasher,
                                            SensorPairingSettings settings,
