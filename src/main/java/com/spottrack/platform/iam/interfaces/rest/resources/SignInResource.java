@@ -5,10 +5,10 @@ import jakarta.validation.constraints.NotBlank;
 
 @Schema(description = "Resource for authenticating an existing user")
 public record SignInResource(
-        @Schema(description = "Username (email) of the account")
+        @Schema(description = "Username (email) of the account", example = "jane.doe@spottrack.com")
         @NotBlank String username,
 
-        @Schema(description = "Password of the account")
+        @Schema(description = "Password of the account", example = "P4ssword!")
         @NotBlank String password
 ) {
 }

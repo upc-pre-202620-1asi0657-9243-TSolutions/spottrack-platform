@@ -12,7 +12,7 @@ public record RegisterTechnicianResource(
         @Pattern(regexp = "^[A-Za-z0-9+_.-]++@(?!\\.[A-Za-z]{2,}$)(?:[A-Za-z0-9-]*+\\.)++[A-Za-z]{2,}$", message = "must be a valid email address")
         String email,
 
-        @Schema(description = "Initial password set by the administrator (8 to 72 characters)")
+        @Schema(description = "Initial password set by the administrator (8 to 72 characters)", example = "T3chP4ss!")
         @NotBlank(message = "must not be blank")
         @Size(min = 8, max = 72, message = "must be between 8 and 72 characters")
         String password,

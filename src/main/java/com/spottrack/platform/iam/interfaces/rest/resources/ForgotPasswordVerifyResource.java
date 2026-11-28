@@ -6,8 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 
 @Schema(description = "Resource for verifying identity and setting a new password")
 public record ForgotPasswordVerifyResource(
-        @Schema(description = "Email address of the account") @NotBlank @Email String email,
-        @Schema(description = "DNI registered on the account's profile") @NotBlank String dni,
-        @Schema(description = "New password to set") @NotBlank String newPassword
+        @Schema(description = "Email address of the account", example = "jane.doe@spottrack.com") @NotBlank @Email String email,
+        @Schema(description = "DNI registered on the account's profile", example = "72345678") @NotBlank String dni,
+        @Schema(description = "New password to set", example = "N3wP4ssword!") @NotBlank String newPassword
 ) {
 }
