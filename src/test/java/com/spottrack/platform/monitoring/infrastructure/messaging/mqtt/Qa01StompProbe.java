@@ -53,7 +53,10 @@ final class Qa01StompProbe implements AutoCloseable {
 
         var handshake = new WebSocketHttpHeaders();
         handshake.add("Authorization", "Bearer " + jwt);
-        var webSocketUrl = apiBaseUrl.replaceFirst("^http", "ws").replaceAll("/+$", "") + "/ws/websocket";
+        var base = apiBaseUrl.replaceFirst("^http", "ws");
+        int end = base.length();
+        while (end > 0 && base.charAt(end - 1) == '/') end--;
+        var webSocketUrl = base.substring(0, end) + "/ws/websocket";
         var connectHeaders = new StompHeaders();
         connectHeaders.add("Authorization", "Bearer " + jwt);
         var session = client.connectAsync(webSocketUrl, handshake, connectHeaders, new StompSessionHandlerAdapter() {
