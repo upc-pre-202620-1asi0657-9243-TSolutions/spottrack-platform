@@ -5,8 +5,14 @@ import jakarta.validation.constraints.Email;
 import java.util.regex.Pattern;
 
 public record EmailAddress(@Email String address) {
-    private static final Pattern EMAIL_PATTERN =
-            Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    /**
+     * local@domain.tld, written with possessive quantifiers so it runs in linear time.
+     * Accepts exactly the same strings as the former {@code ^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$}.
+     */
+    static final String REGEX =
+            "^[A-Za-z0-9+_.-]++@(?!\\.[A-Za-z]{2,}$)(?:[A-Za-z0-9-]*+\\.)++[A-Za-z]{2,}$";
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(REGEX);
 
     public EmailAddress{
         if (address == null || address.isBlank()) {

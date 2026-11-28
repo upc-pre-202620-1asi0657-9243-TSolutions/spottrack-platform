@@ -235,15 +235,23 @@ public class UsageAnalyticsController {
     }
 
     private static String fileName(String scopeName, DateWindow window) {
-        var slug = Normalizer.normalize(scopeName == null ? "" : scopeName, Normalizer.Form.NFD)
+        var slug = trimDashes(Normalizer.normalize(scopeName == null ? "" : scopeName, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
-                .replaceAll("[^A-Za-z0-9]+", "-")
-                .replaceAll("^-+|-+$", "")
+                .replaceAll("[^A-Za-z0-9]+", "-"))
                 .toLowerCase(Locale.ROOT);
         if (slug.length() > 40) {
-            slug = slug.substring(0, 40).replaceAll("-+$", "");
+            slug = trimDashes(slug.substring(0, 40));
         }
         return "spottrack-usage-" + (slug.isEmpty() ? "gym" : slug) + "-" + window.start() + "_" + window.end() + ".pdf";
+    }
+
+    /** Strips leading and trailing dashes in linear time (an anchored "-+$" regex backtracks). */
+    static String trimDashes(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end && value.charAt(start) == '-') start++;
+        while (end > start && value.charAt(end - 1) == '-') end--;
+        return value.substring(start, end);
     }
 
     private boolean canReadGym(Authentication authentication, String gymId) {

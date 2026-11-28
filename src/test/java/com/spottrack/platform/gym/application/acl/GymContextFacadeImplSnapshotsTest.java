@@ -7,6 +7,9 @@ import com.spottrack.platform.gym.application.queryservices.GymQueryService;
 import com.spottrack.platform.gym.domain.model.aggregates.Equipment;
 import com.spottrack.platform.gym.domain.model.queries.GetAvailableAlternativesQuery;
 import com.spottrack.platform.gym.domain.model.queries.GetEquipmentById;
+import com.spottrack.platform.gym.domain.model.queries.GetEquipmentsByAdminUserIdQuery;
+import com.spottrack.platform.gym.domain.model.queries.GetEquipmentsByBranchIdQuery;
+import com.spottrack.platform.gym.domain.model.queries.GetEquipmentsByGymIdQuery;
 import com.spottrack.platform.gym.domain.model.valueobjects.EquipmentId;
 import com.spottrack.platform.gym.domain.model.valueobjects.ZoneId;
 import com.spottrack.platform.gym.infrastructure.persistence.jpa.entities.BranchPersistenceEntity;
@@ -96,6 +99,30 @@ class GymContextFacadeImplSnapshotsTest {
 
         assertEquals(List.of(new BranchSnapshot("b1", "gym-1", "San Isidro", "Av. Rivera 100")),
                 facade.findBranchSnapshotsByGymId("gym-1"));
+    }
+
+    @Test
+    void equipmentSnapshotsByAdminGymAndBranchUseTheMatchingQuery() {
+        var admins = equipment("eq-a", "Rower", "R-1", EquipmentStatus.AVAILABLE, new ZoneId("zone-a"));
+        var gyms = equipment("eq-g", "Press", "P-1", EquipmentStatus.AVAILABLE, new ZoneId("zone-g"));
+        var branches = equipment("eq-b", "Bike", "B-1", EquipmentStatus.MAINTENANCE, new ZoneId("zone-b"));
+        when(equipmentQueryService.handle(new GetEquipmentsByAdminUserIdQuery(7L))).thenReturn(List.of(admins));
+        when(equipmentQueryService.handle(new GetEquipmentsByGymIdQuery("gym-1"))).thenReturn(List.of(gyms));
+        when(equipmentQueryService.handle(new GetEquipmentsByBranchIdQuery("b1"))).thenReturn(List.of(branches));
+
+        assertEquals("eq-a", facade.findEquipmentSnapshotsByAdminUserId(7L).getFirst().equipmentId());
+        assertEquals("eq-g", facade.findEquipmentSnapshotsByGymId("gym-1").getFirst().equipmentId());
+        assertEquals("eq-b", facade.findEquipmentSnapshotsByBranchId("b1").getFirst().equipmentId());
+    }
+
+    @Test
+    void resolveGymIdForBranchReadsTheBranchGym() {
+        var entity = new BranchPersistenceEntity();
+        entity.setBranchId("b1");
+        entity.setGymId("gym-1");
+        when(branchRepository.findByBranchId("b1")).thenReturn(Optional.of(entity));
+
+        assertEquals(Optional.of("gym-1"), facade.resolveGymIdForBranch("b1"));
     }
 
     private static Equipment equipment(String id, String name, String model, EquipmentStatus status, ZoneId zoneId) {

@@ -17,6 +17,7 @@ import lombok.Setter;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 
 @Getter
 @Setter
@@ -85,7 +86,7 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
             this.firstActivityAt = this.lastActivityAt;
         }
         if (this.createdAt != null) {
-            var elapsedSinceCreation = Duration.between(this.createdAt, this.lastActivityAt);
+            var elapsedSinceCreation = elapsed(this.createdAt, this.lastActivityAt);
             this.usageActivity = new UsageActivity(
                     LocalTime.MIDNIGHT.plus(elapsedSinceCreation),
                     this.usageActivity.seconds());
@@ -111,7 +112,7 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
     }
 
     public boolean verifyUsageSession() {
-        sessionIsInactive = lastActivityAt != null && Duration.between(lastActivityAt, LocalDateTime.now()).toMinutes() >= 3;
+        sessionIsInactive = lastActivityAt != null && elapsed(lastActivityAt, LocalDateTime.now()).toMinutes() >= 3;
         registerDomainEvent(new UsageSessionVerifiedEvent(this.sessionTrackerId));
         return sessionIsInactive;
     }
@@ -136,8 +137,14 @@ public class SessionTracker extends AbstractDomainAggregateRoot {
             return LocalTime.MIDNIGHT;
         }
         var activity = this.usageActivity.continuousActivity();
-        var inactivity = Duration.between(lastActivityAt, LocalDateTime.now());
+        var inactivity = elapsed(lastActivityAt, LocalDateTime.now());
         return activity.minus(inactivity);
+    }
+
+    /** Elapsed time between two wall-clock readings, measured on the instant line of the system zone. */
+    private static Duration elapsed(LocalDateTime from, LocalDateTime to) {
+        var zone = ZoneId.systemDefault();
+        return Duration.between(from.atZone(zone).toInstant(), to.atZone(zone).toInstant());
     }
 
     /**

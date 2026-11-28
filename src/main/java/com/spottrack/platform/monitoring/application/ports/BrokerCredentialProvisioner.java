@@ -17,6 +17,12 @@ package com.spottrack.platform.monitoring.application.ports;
  * Exception messages must never contain the secret.
  */
 public interface BrokerCredentialProvisioner {
+
+    /**
+     * Bean name shared by every implementation. They are mutually exclusive on
+     * {@code pairing.provisioner.mode}, so exactly one of them is registered under it.
+     */
+    String BEAN_NAME = "brokerCredentialProvisioner";
     void provision(String deviceId, String secret);
 
     void revoke(String deviceId);

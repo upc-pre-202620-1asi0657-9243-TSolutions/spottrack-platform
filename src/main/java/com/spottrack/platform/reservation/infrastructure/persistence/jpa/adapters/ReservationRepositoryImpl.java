@@ -80,7 +80,7 @@ public class ReservationRepositoryImpl implements ReservationRepository {
 
     @Override
     public Optional<Reservation> findByStatus(ReservationStatus status) {
-        return  null;
+        return Optional.empty();
     }
 }
 
