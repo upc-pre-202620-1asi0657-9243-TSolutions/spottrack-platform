@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 
 @Schema(description = "Resource for initiating the forgot-password flow")
 public record ForgotPasswordResource(
-        @Schema(description = "Email address of the account to recover")
+        @Schema(description = "Email address of the account to recover", example = "jane.doe@spottrack.com")
         @NotBlank @Email String email
 ) {
 }

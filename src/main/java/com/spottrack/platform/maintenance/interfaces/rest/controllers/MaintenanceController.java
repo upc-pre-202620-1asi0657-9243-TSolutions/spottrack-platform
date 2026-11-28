@@ -38,6 +38,11 @@ import com.spottrack.platform.maintenance.interfaces.rest.resources.ModifyTicket
 import com.spottrack.platform.maintenance.interfaces.rest.resources.RegisterMaintenanceCompletionResource;
 import com.spottrack.platform.maintenance.interfaces.rest.resources.RequestMaintenanceResource;
 import com.spottrack.platform.maintenance.interfaces.rest.resources.UpdateMaintenanceStatusResource;
+import com.spottrack.platform.maintenance.interfaces.rest.resources.MaintenanceJobResource;
+import com.spottrack.platform.maintenance.interfaces.rest.resources.MaintenanceLogResource;
+import com.spottrack.platform.maintenance.interfaces.rest.resources.MaintenanceResource;
+import com.spottrack.platform.maintenance.interfaces.rest.resources.TechnicalTicketResource;
+import com.spottrack.platform.maintenance.interfaces.rest.resources.TechnicianResource;
 import com.spottrack.platform.maintenance.interfaces.rest.transform.CreateTechnicalTicketCommandFromResourceAssembler;
 import com.spottrack.platform.maintenance.interfaces.rest.transform.CreateTechnicianCommandFromResourceAssembler;
 import com.spottrack.platform.maintenance.interfaces.rest.transform.MaintenanceJobResourceFromEntityAssembler;
@@ -49,6 +54,14 @@ import com.spottrack.platform.maintenance.interfaces.rest.transform.TechnicianRe
 import com.spottrack.platform.shared.application.result.ApplicationError;
 import com.spottrack.platform.shared.application.result.Result;
 import com.spottrack.platform.shared.interfaces.rest.transform.ErrorResponseAssembler;
+import com.spottrack.platform.shared.infrastructure.documentation.openapi.configuration.OpenApiConfiguration;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -60,7 +73,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/maintenance")
-@Tag(name = "Maintenance")
+@Tag(name = "Maintenance", description = "Maintenance requests, technical tickets, technicians and completion logs")
 public class MaintenanceController {
 
     private final MaintenanceCommandService commandService;
@@ -93,6 +106,19 @@ public class MaintenanceController {
         this.technicianQueryService = technicianQueryService;
     }
 
+    @Operation(
+            summary = "Request maintenance for an equipment",
+            description = "Administrator-only. Opens a maintenance request for an equipment of one of the caller's gyms. "
+                    + "Create a technical ticket from it with POST /api/v1/maintenance/tickets."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Maintenance request created",
+                    content = @Content(schema = @Schema(implementation = MaintenanceResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceFailure"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PostMapping("/requests")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> requestMaintenance(Authentication authentication,
@@ -115,6 +141,19 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Create a technical ticket",
+            description = "Administrator-only. Creates the technical ticket for a maintenance request owned by the caller. "
+                    + "Only one ticket can exist per maintenance request."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Ticket created",
+                    content = @Content(schema = @Schema(implementation = TechnicalTicketResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceFailure"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PostMapping("/tickets")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createTechnicalTicket(Authentication authentication,
@@ -137,6 +176,18 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "List the caller's technical tickets",
+            description = "Administrator-only. Returns every ticket for equipment in the caller's gyms. "
+                    + "/tickets and /tickets/me are equivalent."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Tickets found",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = TechnicalTicketResource.class)))),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @GetMapping({"/tickets", "/tickets/me"})
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllTickets(Authentication authentication) {
@@ -153,11 +204,23 @@ public class MaintenanceController {
         return ResponseEntity.ok(resources);
     }
 
+    @Operation(
+            summary = "Assign a ticket to a technician",
+            description = "Administrator-only. Assigns the ticket to a technician of the caller's roster."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ticket assigned",
+                    content = @Content(schema = @Schema(implementation = TechnicalTicketResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PatchMapping("/tickets/{ticketId}/assign/{technicianId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> assignTechnicalTicket(Authentication authentication,
-                                                   @PathVariable String ticketId,
-                                                   @PathVariable String technicianId) {
+                                                   @Parameter(description = "Technical ticket identifier (UUID)", example = "5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90") @PathVariable String ticketId,
+                                                   @Parameter(description = "Technician identifier (UUID)", example = "9b2e4c71-3f5a-4d8b-b6c0-1e7a2d9f4c35") @PathVariable String technicianId) {
         var adminUserId = resolveAdminUserId(authentication);
         if (adminUserId == 0L) {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
@@ -177,10 +240,23 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Edit a technical ticket",
+            description = "Administrator-only. Partially updates description, priority, type and technician. "
+                    + "Null fields are left unchanged; changing the technician does not change the status."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ticket updated",
+                    content = @Content(schema = @Schema(implementation = TechnicalTicketResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PatchMapping("/tickets/{ticketId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateTechnicalTicket(Authentication authentication,
-                                                   @PathVariable String ticketId,
+                                                   @Parameter(description = "Technical ticket identifier (UUID)", example = "5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90") @PathVariable String ticketId,
                                                    @RequestBody UpdateTechnicalTicketResource resource) {
         var adminUserId = resolveAdminUserId(authentication);
         if (adminUserId == 0L) {
@@ -208,11 +284,23 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Accept a maintenance job on behalf of a technician",
+            description = "Administrator-only. Marks the job as accepted by a technician of the caller's roster."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Job accepted",
+                    content = @Content(schema = @Schema(implementation = MaintenanceJobResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PatchMapping("/jobs/{jobId}/accept/{technicianId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> acceptMaintenance(Authentication authentication,
-                                               @PathVariable String jobId,
-                                               @PathVariable String technicianId) {
+                                               @Parameter(description = "Maintenance job identifier (UUID)", example = "c4d8e2a1-6b3f-4a9c-8e57-2f1b0d6a9e48") @PathVariable String jobId,
+                                               @Parameter(description = "Technician identifier (UUID)", example = "9b2e4c71-3f5a-4d8b-b6c0-1e7a2d9f4c35") @PathVariable String technicianId) {
         var adminUserId = resolveAdminUserId(authentication);
         if (adminUserId == 0L) {
             return ErrorResponseAssembler.toErrorResponseFromApplicationError(
@@ -232,6 +320,19 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Add a technician to the roster",
+            description = "Administrator-only. Adds a technician without a login account to the caller's roster. "
+                    + "To create a technician who can sign in, use POST /api/v1/users/technicians."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Technician created",
+                    content = @Content(schema = @Schema(implementation = TechnicianResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceFailure"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PostMapping("/technicians")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createTechnician(Authentication authentication,
@@ -252,6 +353,17 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "List the caller's technicians",
+            description = "Administrator-only. Returns the technicians in the caller's roster."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Technicians found",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = TechnicianResource.class)))),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @GetMapping("/technicians")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllTechnicians(Authentication authentication) {
@@ -267,6 +379,17 @@ public class MaintenanceController {
         return ResponseEntity.ok(resources);
     }
 
+    @Operation(
+            summary = "List tickets assigned to the calling technician",
+            description = "Technician-only. Returns the tickets assigned to the technician behind the bearer token."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Tickets found",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = TechnicalTicketResource.class)))),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @GetMapping("/tickets/assigned-to-me")
     @PreAuthorize("hasRole('TECHNICIAN')")
     public ResponseEntity<?> getTicketsAssignedToMe(Authentication authentication) {
@@ -283,10 +406,23 @@ public class MaintenanceController {
         return ResponseEntity.ok(resources);
     }
 
+    @Operation(
+            summary = "Complete a ticket",
+            description = "Administrators (for tickets of their gyms) or the assigned technician. "
+                    + "Marks the ticket as resolved."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ticket completed",
+                    content = @Content(schema = @Schema(implementation = TechnicalTicketResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PatchMapping("/tickets/{ticketId}/complete")
     @PreAuthorize("hasAnyRole('ADMIN','TECHNICIAN')")
     public ResponseEntity<?> completeMaintenance(Authentication authentication,
-                                                 @PathVariable String ticketId) {
+                                                 @Parameter(description = "Technical ticket identifier (UUID)", example = "5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90") @PathVariable String ticketId) {
         var ownershipError = checkTicketAccess(ticketId, authentication);
         if (ownershipError.isPresent()) return ownershipError.get();
         var command = new CompleteMaintenance(new TechnicalTicketId(ticketId));
@@ -299,10 +435,23 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Change a ticket status",
+            description = "Administrators (for tickets of their gyms) or the assigned technician. "
+                    + "Sets the ticket status (OPEN, IN_PROGRESS, RESOLVED, MODIFIED)."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Status changed",
+                    content = @Content(schema = @Schema(implementation = TechnicalTicketResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PatchMapping("/tickets/{ticketId}/status")
     @PreAuthorize("hasAnyRole('ADMIN','TECHNICIAN')")
     public ResponseEntity<?> modifyTicketStatus(Authentication authentication,
-                                                @PathVariable String ticketId,
+                                                @Parameter(description = "Technical ticket identifier (UUID)", example = "5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90") @PathVariable String ticketId,
                                                 @RequestBody ModifyTicketStatusResource resource) {
         var ownershipError = checkTicketAccess(ticketId, authentication);
         if (ownershipError.isPresent()) return ownershipError.get();
@@ -317,10 +466,23 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Register a completion log",
+            description = "Administrators (for tickets of their gyms) or the assigned technician. "
+                    + "Records the notes and cost of the work done on the ticket."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Completion log registered",
+                    content = @Content(schema = @Schema(implementation = MaintenanceLogResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceFailure"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PostMapping("/tickets/{ticketId}/completion-log")
     @PreAuthorize("hasAnyRole('ADMIN','TECHNICIAN')")
     public ResponseEntity<?> registerMaintenanceCompletion(Authentication authentication,
-                                                           @PathVariable String ticketId,
+                                                           @Parameter(description = "Technical ticket identifier (UUID)", example = "5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90") @PathVariable String ticketId,
                                                            @RequestBody RegisterMaintenanceCompletionResource resource) {
         var ownershipError = checkTicketAccess(ticketId, authentication);
         if (ownershipError.isPresent()) return ownershipError.get();
@@ -339,10 +501,21 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Get the completion logs of a ticket",
+            description = "Administrators (for tickets of their gyms) or the assigned technician."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logs found",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = MaintenanceLogResource.class)))),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @GetMapping("/tickets/{ticketId}/completion-log")
     @PreAuthorize("hasAnyRole('ADMIN','TECHNICIAN')")
     public ResponseEntity<?> getMaintenanceCompletionLog(Authentication authentication,
-                                                         @PathVariable String ticketId) {
+                                                         @Parameter(description = "Technical ticket identifier (UUID)", example = "5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90") @PathVariable String ticketId) {
         var ownershipError = checkTicketAccess(ticketId, authentication);
         if (ownershipError.isPresent()) return ownershipError.get();
         var resources = maintenanceLogQueryService.handle(new GetMaintenanceLogsByTicketIdQuery(ticketId)).stream()
@@ -351,6 +524,18 @@ public class MaintenanceController {
         return ResponseEntity.ok(resources);
     }
 
+    @Operation(
+            summary = "List the caller's maintenance logs",
+            description = "Administrator-only. Returns the completion logs of every ticket in the caller's gyms. "
+                    + "/logs and /logs/me are equivalent."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logs found",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = MaintenanceLogResource.class)))),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @GetMapping({"/logs", "/logs/me"})
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getAllMaintenanceLogs(Authentication authentication) {
@@ -368,10 +553,23 @@ public class MaintenanceController {
         return ResponseEntity.ok(resources);
     }
 
+    @Operation(
+            summary = "Request a maintenance status change",
+            description = "Administrator-only. Requests a change of the maintenance status (REQUESTED, IN_PROGRESS, "
+                    + "COMPLETED) of the ticket."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Change requested",
+                    content = @Content(schema = @Schema(implementation = TechnicalTicketResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PatchMapping("/tickets/{ticketId}/maintenance-status/request")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> requestUpdateMaintenanceStatus(Authentication authentication,
-                                                            @PathVariable String ticketId,
+                                                            @Parameter(description = "Technical ticket identifier (UUID)", example = "5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90") @PathVariable String ticketId,
                                                             @RequestBody UpdateMaintenanceStatusResource resource) {
         var adminUserId = resolveAdminUserId(authentication);
         if (adminUserId == 0L) {
@@ -390,10 +588,22 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Update the maintenance status",
+            description = "Administrator-only. Sets the maintenance status (REQUESTED, IN_PROGRESS, COMPLETED) of the ticket."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Status updated",
+                    content = @Content(schema = @Schema(implementation = TechnicalTicketResource.class))),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "BadRequest"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PatchMapping("/tickets/{ticketId}/maintenance-status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateMaintenanceStatus(Authentication authentication,
-                                                     @PathVariable String ticketId,
+                                                     @Parameter(description = "Technical ticket identifier (UUID)", example = "5f1c2b9e-8a7d-4c3b-9e21-0d6f4a7b8c90") @PathVariable String ticketId,
                                                      @RequestBody UpdateMaintenanceStatusResource resource) {
         var adminUserId = resolveAdminUserId(authentication);
         if (adminUserId == 0L) {
@@ -412,10 +622,22 @@ public class MaintenanceController {
         };
     }
 
+    @Operation(
+            summary = "Recommend an equipment transfer",
+            description = "Administrator-only. Records a recommendation to transfer or decommission an equipment of the "
+                    + "caller's gyms. The response has no body."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Recommendation recorded", content = @Content),
+            @ApiResponse(responseCode = "400", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceFailure"),
+            @ApiResponse(responseCode = "401", ref = OpenApiConfiguration.RESPONSES_REF + "Unauthorized"),
+            @ApiResponse(responseCode = "403", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceForbidden"),
+            @ApiResponse(responseCode = "404", ref = OpenApiConfiguration.RESPONSES_REF + "MaintenanceNotFound")
+    })
     @PostMapping("/equipment/{equipmentId}/transfer-recommendation")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> recommendEquipmentTransfer(Authentication authentication,
-                                                        @PathVariable String equipmentId,
+                                                        @Parameter(description = "Equipment identifier (UUID)", example = "7e3a1c5d-9f2b-4e6a-b8d4-0c1f5a3e7b92") @PathVariable String equipmentId,
                                                         @RequestBody DecommissionEquipmentResource resource) {
         var adminUserId = resolveAdminUserId(authentication);
         if (adminUserId == 0L) {
